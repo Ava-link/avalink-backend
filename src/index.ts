@@ -1,0 +1,57 @@
+import express, { Application, Request, Response, NextFunction } from 'express';
+import cors from 'cors';
+import { env } from './config/env';
+import healthRouter from './routes/health';
+
+const app: Application = express();
+const PORT = env.PORT;
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Request logging middleware
+app.use((req: Request, res: Response, next: NextFunction) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  next();
+});
+
+// Routes
+app.use('/', healthRouter);
+
+// 404 handler
+app.use((req: Request, res: Response) => {
+  res.status(404).json({
+    status: 'error',
+    message: 'Route not found',
+    path: req.path
+  });
+});
+
+// Error handler
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+  console.error('Error:', err);
+  res.status(500).json({
+    status: 'error',
+    message: env.NODE_ENV === 'production' 
+      ? 'Internal server error' 
+      : err.message
+  });
+});
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`
+╔═══════════════════════════════════════╗
+║   Avalink Backend Server Started      ║
+╠═══════════════════════════════════════╣
+║  Port: ${PORT}                           ║
+║  Environment: ${env.NODE_ENV}             ║
+║  Check: http://localhost:${PORT}         ║
+╚═══════════════════════════════════════╝
+  `);
+});
+
+export default app;
+
