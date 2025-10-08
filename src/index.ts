@@ -2,6 +2,7 @@ import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { env } from './config/env';
 import healthRouter from './routes/health';
+import deploymentRouter from './routes/deployment';
 
 const app: Application = express();
 const PORT = env.PORT;
@@ -19,6 +20,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
 // Routes
 app.use('/', healthRouter);
+app.use('/deploy', deploymentRouter);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

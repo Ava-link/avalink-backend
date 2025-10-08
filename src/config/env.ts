@@ -37,6 +37,10 @@ const envSchema = z.object({
   DB_MAX_CONNECTIONS: z.string().default('20').transform(Number),
   DB_IDLE_TIMEOUT: z.string().default('30000').transform(Number),
   DB_CONNECTION_TIMEOUT: z.string().default('2000').transform(Number),
+
+  // Blockchain Configuration
+  DEPLOYER_PRIVATE_KEY: z.string().min(1, 'Deployer private key is required'),
+  DEFAULT_GAS_LIMIT: z.string().default('5000000').transform(Number),
 });
 
 /**
