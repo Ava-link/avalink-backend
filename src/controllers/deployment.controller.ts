@@ -9,6 +9,8 @@ import {
   getERC20TokenRemoteArtifacts,
   getTeleporterMessengerArtifacts,
   getTeleporterRegistryArtifacts,
+  deployUnifiedBridge,
+  validateUnifiedDeploymentParams,
 } from '../services/deployment';
 import { getWalletAddress, getWalletBalance } from '../config/wallet';
 
@@ -223,6 +225,41 @@ export async function getArtifactsController(req: Request, res: Response) {
     });
   } catch (error) {
     console.error('Error in getArtifactsController:', error);
+    return res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Deploy unified cross-chain bridge
+ * PUT /deploy/bridge
+ * 
+ * Deploys complete cross-chain token bridge infrastructure:
+ * - TeleporterMessenger and TeleporterRegistry on both chains (or uses existing)
+ * - ERC20TokenHome on home chain
+ * - ERC20TokenRemote on remote chain
+ */
+export async function deployUnifiedBridgeController(req: Request, res: Response) {
+  try {
+    const params = req.body;
+
+    // Validate parameters
+    const validation = validateUnifiedDeploymentParams(params);
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        error: validation.error,
+      });
+    }
+
+    // Deploy unified bridge
+    const result = await deployUnifiedBridge(params);
+
+    return res.status(result.success ? 200 : 500).json(result);
+  } catch (error) {
+    console.error('Error in deployUnifiedBridgeController:', error);
     return res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',

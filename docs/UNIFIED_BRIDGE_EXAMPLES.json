@@ -1,0 +1,206 @@
+{
+  "example1_deploy_everything": {
+    "description": "Deploy all contracts fresh on both chains",
+    "endpoint": "PUT http://localhost:3001/deploy/bridge",
+    "request": {
+      "homeChain": {
+        "rpcUrl": "https://api.avax-test.network/ext/bc/C/rpc",
+        "blockchainId": "0x7fc93d85c6d62c5b2ac0b519c87010ea5294012d1e407030d6acd0021cac10d5",
+        "tokenAddress": "0x5425890298aed601595a70AB815c96711a31Bc65",
+        "tokenDecimals": 18,
+        "teleporterMessenger": {
+          "deploy": true
+        },
+        "teleporterRegistry": {
+          "deploy": true
+        },
+        "gasLimit": 8000000
+      },
+      "remoteChain": {
+        "rpcUrl": "https://subnets.avax.network/mysubnet/rpc",
+        "blockchainId": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "teleporterManagerAddress": "0x1234567890123456789012345678901234567890",
+        "tokenName": "Wrapped USDC",
+        "tokenSymbol": "WUSDC",
+        "tokenDecimals": 18,
+        "initialReserveImbalance": 0,
+        "teleporterMessenger": {
+          "deploy": true
+        },
+        "teleporterRegistry": {
+          "deploy": true
+        },
+        "gasLimit": 8000000
+      }
+    }
+  },
+  "example2_use_existing_teleporter": {
+    "description": "Use existing Teleporter contracts, only deploy token contracts",
+    "endpoint": "PUT http://localhost:3001/deploy/bridge",
+    "request": {
+      "homeChain": {
+        "rpcUrl": "https://api.avax-test.network/ext/bc/C/rpc",
+        "blockchainId": "0x7fc93d85c6d62c5b2ac0b519c87010ea5294012d1e407030d6acd0021cac10d5",
+        "tokenAddress": "0x5425890298aed601595a70AB815c96711a31Bc65",
+        "tokenDecimals": 18,
+        "teleporterMessenger": {
+          "deploy": false,
+          "contractAddress": "0x253b2784c75e510dD0fF1da844684a1aC0aa5fcf"
+        },
+        "teleporterRegistry": {
+          "deploy": false,
+          "contractAddress": "0xa1b2c3d4e5f6789012345678901234567890abcd"
+        },
+        "gasLimit": 5000000
+      },
+      "remoteChain": {
+        "rpcUrl": "https://subnets.avax.network/mysubnet/rpc",
+        "blockchainId": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "teleporterManagerAddress": "0x1234567890123456789012345678901234567890",
+        "tokenName": "Wrapped USDC",
+        "tokenSymbol": "WUSDC",
+        "tokenDecimals": 18,
+        "initialReserveImbalance": 0,
+        "teleporterMessenger": {
+          "deploy": false,
+          "contractAddress": "0x253b2784c75e510dD0fF1da844684a1aC0aa5fcf"
+        },
+        "teleporterRegistry": {
+          "deploy": false,
+          "contractAddress": "0xfedcba09876543210fedcba09876543210fedcba"
+        },
+        "gasLimit": 5000000
+      }
+    }
+  },
+  "example3_mixed_deployment": {
+    "description": "Deploy Teleporter on home chain, use existing on remote chain",
+    "endpoint": "PUT http://localhost:3001/deploy/bridge",
+    "request": {
+      "homeChain": {
+        "rpcUrl": "https://api.avax-test.network/ext/bc/C/rpc",
+        "blockchainId": "0x7fc93d85c6d62c5b2ac0b519c87010ea5294012d1e407030d6acd0021cac10d5",
+        "tokenAddress": "0x5425890298aed601595a70AB815c96711a31Bc65",
+        "tokenDecimals": 18,
+        "teleporterMessenger": {
+          "deploy": true
+        },
+        "teleporterRegistry": {
+          "deploy": true
+        },
+        "gasLimit": 8000000
+      },
+      "remoteChain": {
+        "rpcUrl": "https://subnets.avax.network/mysubnet/rpc",
+        "blockchainId": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "teleporterManagerAddress": "0x1234567890123456789012345678901234567890",
+        "tokenName": "Wrapped USDC",
+        "tokenSymbol": "WUSDC",
+        "tokenDecimals": 18,
+        "initialReserveImbalance": 0,
+        "teleporterMessenger": {
+          "deploy": false,
+          "contractAddress": "0x253b2784c75e510dD0fF1da844684a1aC0aa5fcf"
+        },
+        "teleporterRegistry": {
+          "deploy": false,
+          "contractAddress": "0xfedcba09876543210fedcba09876543210fedcba"
+        },
+        "gasLimit": 5000000
+      }
+    }
+  },
+  "example4_avalanche_fuji_to_custom_subnet": {
+    "description": "Bridge USDC from Avalanche Fuji testnet to custom subnet",
+    "endpoint": "PUT http://localhost:3001/deploy/bridge",
+    "request": {
+      "homeChain": {
+        "rpcUrl": "https://api.avax-test.network/ext/bc/C/rpc",
+        "blockchainId": "0x7fc93d85c6d62c5b2ac0b519c87010ea5294012d1e407030d6acd0021cac10d5",
+        "tokenAddress": "0x5425890298aed601595a70AB815c96711a31Bc65",
+        "tokenDecimals": 6,
+        "teleporterMessenger": {
+          "deploy": true
+        },
+        "teleporterRegistry": {
+          "deploy": true
+        }
+      },
+      "remoteChain": {
+        "rpcUrl": "https://subnets.avax.network/mysubnet/rpc",
+        "blockchainId": "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+        "teleporterManagerAddress": "0x1234567890123456789012345678901234567890",
+        "tokenName": "Avalanche USDC",
+        "tokenSymbol": "USDC.e",
+        "tokenDecimals": 6,
+        "initialReserveImbalance": 0,
+        "teleporterMessenger": {
+          "deploy": true
+        },
+        "teleporterRegistry": {
+          "deploy": true
+        }
+      }
+    }
+  },
+  "example5_mainnet_deployment": {
+    "description": "Production deployment - use existing Teleporter infrastructure",
+    "warning": "⚠️ MAINNET DEPLOYMENT - Ensure all addresses are correct!",
+    "endpoint": "PUT http://localhost:3001/deploy/bridge",
+    "request": {
+      "homeChain": {
+        "rpcUrl": "https://api.avax.network/ext/bc/C/rpc",
+        "blockchainId": "0x9f3be606497285d0ffbb5ac9ba24aa60346a9b1812479ed66cb329f394a4b1c7",
+        "tokenAddress": "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E",
+        "tokenDecimals": 6,
+        "teleporterMessenger": {
+          "deploy": false,
+          "contractAddress": "0x253b2784c75e510dD0fF1da844684a1aC0aa5fcf"
+        },
+        "teleporterRegistry": {
+          "deploy": false,
+          "contractAddress": "0xa1b2c3d4e5f6789012345678901234567890abcd"
+        }
+      },
+      "remoteChain": {
+        "rpcUrl": "https://subnets.avax.network/dexalot/mainnet/rpc",
+        "blockchainId": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "teleporterManagerAddress": "0x1234567890123456789012345678901234567890",
+        "tokenName": "Avalanche USDC",
+        "tokenSymbol": "USDC",
+        "tokenDecimals": 6,
+        "initialReserveImbalance": 0,
+        "teleporterMessenger": {
+          "deploy": false,
+          "contractAddress": "0x253b2784c75e510dD0fF1da844684a1aC0aa5fcf"
+        },
+        "teleporterRegistry": {
+          "deploy": false,
+          "contractAddress": "0xfedcba09876543210fedcba09876543210fedcba"
+        }
+      }
+    }
+  },
+  "blockchain_ids_reference": {
+    "avalanche_fuji_cchain": "0x7fc93d85c6d62c5b2ac0b519c87010ea5294012d1e407030d6acd0021cac10d5",
+    "avalanche_mainnet_cchain": "0x9f3be606497285d0ffbb5ac9ba24aa60346a9b1812479ed66cb329f394a4b1c7",
+    "note": "For custom subnets, get the blockchain ID from the subnet documentation or chain info API"
+  },
+  "common_teleporter_addresses": {
+    "note": "These are example addresses. Use actual deployed addresses for your network.",
+    "avalanche_fuji": {
+      "teleporterMessenger": "0x253b2784c75e510dD0fF1da844684a1aC0aa5fcf",
+      "teleporterRegistry": "0xa1b2c3d4e5f6789012345678901234567890abcd"
+    },
+    "avalanche_mainnet": {
+      "teleporterMessenger": "0x253b2784c75e510dD0fF1da844684a1aC0aa5fcf",
+      "teleporterRegistry": "0xa1b2c3d4e5f6789012345678901234567890abcd"
+    }
+  },
+  "curl_command_template": {
+    "description": "Use this cURL command template for testing",
+    "command": "curl -X PUT http://localhost:3001/deploy/bridge -H 'Content-Type: application/json' -d @request.json",
+    "note": "Save your request body to request.json and run the command above"
+  }
+}
+

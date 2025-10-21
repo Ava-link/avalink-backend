@@ -6,6 +6,7 @@ import {
   deployTeleporterRegistryController,
   getWalletInfoController,
   getArtifactsController,
+  deployUnifiedBridgeController,
 } from '../controllers/deployment.controller';
 
 const router = Router();
@@ -15,6 +16,9 @@ const router = Router();
  * 
  * All routes for deploying contracts and managing deployments
  */
+
+// Deploy unified cross-chain bridge (complete setup)
+router.put('/bridge', deployUnifiedBridgeController);
 
 // Deploy ERC20TokenHome contract
 router.put('/erc20-token-home', deployERC20TokenHomeController);
