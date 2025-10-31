@@ -1,6 +1,8 @@
 import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { env } from './config/env';
+import logger from './config/logger';
+import { rayIdMiddleware } from './middleware/rayId';
 import healthRouter from './routes/health';
 import deploymentRouter from './routes/deployment';
 
@@ -12,11 +14,8 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Request logging middleware
-app.use((req: Request, res: Response, next: NextFunction) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
-  next();
-});
+// Ray-ID middleware (must come before routes)
+app.use(rayIdMiddleware);
 
 // Routes
 app.use('/', healthRouter);
@@ -33,18 +32,23 @@ app.use((req: Request, res: Response) => {
 
 // Error handler
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  console.error('Error:', err);
+  logger.error('Unhandled error', { 
+    rayId: req.rayId,
+    error: err.message,
+    stack: err.stack 
+  });
   res.status(500).json({
     status: 'error',
     message: env.NODE_ENV === 'production' 
       ? 'Internal server error' 
-      : err.message
+      : err.message,
+    rayId: req.rayId
   });
 });
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`
+  logger.info(`
 ╔═══════════════════════════════════════╗
 ║   Avalink Backend Server Started      ║
 ╠═══════════════════════════════════════╣
