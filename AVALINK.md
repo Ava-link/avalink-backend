@@ -129,7 +129,7 @@ Step 4: Bridge Transaction
 
 **User Interfaces**:
 - **Chain Admin Portal**: Simple, form-based interface for chain onboarding
-  - Input chain details (RPC, Chain ID, Teleporter address)
+  - Input chain details (RPC, Chain ID, Teleporter registry address)
   - Real-time validation feedback
   - Deployment progress tracking
 
