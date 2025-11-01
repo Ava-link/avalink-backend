@@ -1,15 +1,19 @@
 import { Pool } from 'pg';
 import { env } from './env';
+import { parse } from 'pg-connection-string';
+
+// Parse the connection string and force IPv4
+const config = parse(env.DATABASE_URL);
 
 const pool = new Pool({
-  host: env.DB_HOST,
-  port: env.DB_PORT,
-  database: env.DB_NAME,
-  user: env.DB_USER,
-  password: env.DB_PASSWORD,
-  ssl: env.DB_SSL ? {
-    rejectUnauthorized: false // AWS RDS requires SSL
-  } : false,
+  host: config.host || undefined,
+  port: config.port ? parseInt(config.port) : undefined,
+  database: config.database || undefined,
+  user: config.user || undefined,
+  password: config.password || undefined,
+  ssl: {
+    rejectUnauthorized: false // Supabase requires SSL
+  },
   max: env.DB_MAX_CONNECTIONS,
   idleTimeoutMillis: env.DB_IDLE_TIMEOUT,
   connectionTimeoutMillis: env.DB_CONNECTION_TIMEOUT,

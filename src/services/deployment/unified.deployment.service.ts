@@ -31,6 +31,7 @@ export interface HomeChainConfig {
   blockchainId: string; // bytes32 blockchain ID
   teleporterMessenger: TeleporterConfig;
   teleporterRegistry: TeleporterConfig;
+  teleporterManagerAddress: string;
   tokenAddress: string; // Existing ERC20 token address
   tokenDecimals: number;
   registeredRemoteAddress?: string; // Will be set after remote deployment
@@ -110,73 +111,81 @@ export interface UnifiedDeploymentResult {
 }
 
 /**
- * Validate unified deployment parameters
+ * Unified Bridge Deployment Service Class
+ * Handles complete cross-chain bridge deployment using static methods
  */
-export function validateUnifiedDeploymentParams(params: UnifiedDeploymentParams): { valid: boolean; error?: string } {
-  // Validate home chain
-  if (!params.homeChain.rpcUrl) {
-    return { valid: false, error: 'Home chain RPC URL is required' };
-  }
-  if (!params.homeChain.blockchainId) {
-    return { valid: false, error: 'Home chain blockchain ID is required' };
-  }
-  if (!params.homeChain.tokenAddress || !ethers.isAddress(params.homeChain.tokenAddress)) {
-    return { valid: false, error: 'Valid home chain token address is required' };
-  }
-  
-  // Validate home chain teleporter configs
-  if (!params.homeChain.teleporterMessenger.deploy && !params.homeChain.teleporterMessenger.contractAddress) {
-    return { valid: false, error: 'Home chain: TeleporterMessenger address required when deploy is false' };
-  }
-  if (params.homeChain.teleporterMessenger.contractAddress && !ethers.isAddress(params.homeChain.teleporterMessenger.contractAddress)) {
-    return { valid: false, error: 'Home chain: Invalid TeleporterMessenger address' };
-  }
-  if (!params.homeChain.teleporterRegistry.deploy && !params.homeChain.teleporterRegistry.contractAddress) {
-    return { valid: false, error: 'Home chain: TeleporterRegistry address required when deploy is false' };
-  }
-  if (params.homeChain.teleporterRegistry.contractAddress && !ethers.isAddress(params.homeChain.teleporterRegistry.contractAddress)) {
-    return { valid: false, error: 'Home chain: Invalid TeleporterRegistry address' };
+export class UnifiedBridgeDeploymentService {
+  /**
+   * Validate unified deployment parameters
+   */
+  static validateUnifiedDeploymentParams(params: UnifiedDeploymentParams): { valid: boolean; error?: string } {
+    // Validate home chain
+    if (!params.homeChain.rpcUrl) {
+      return { valid: false, error: 'Home chain RPC URL is required' };
+    }
+    if (!params.homeChain.blockchainId) {
+      return { valid: false, error: 'Home chain blockchain ID is required' };
+    }
+    if (!params.homeChain.tokenAddress || !ethers.isAddress(params.homeChain.tokenAddress)) {
+      return { valid: false, error: 'Valid home chain token address is required' };
+    }
+    if (!params.homeChain.teleporterManagerAddress || !ethers.isAddress(params.homeChain.teleporterManagerAddress)) {
+      return { valid: false, error: 'Valid home chain teleporter manager address is required' };
+    }
+    
+    // Validate home chain teleporter configs
+    if (!params.homeChain.teleporterMessenger.deploy && !params.homeChain.teleporterMessenger.contractAddress) {
+      return { valid: false, error: 'Home chain: TeleporterMessenger address required when deploy is false' };
+    }
+    if (params.homeChain.teleporterMessenger.contractAddress && !ethers.isAddress(params.homeChain.teleporterMessenger.contractAddress)) {
+      return { valid: false, error: 'Home chain: Invalid TeleporterMessenger address' };
+    }
+    if (!params.homeChain.teleporterRegistry.deploy && !params.homeChain.teleporterRegistry.contractAddress) {
+      return { valid: false, error: 'Home chain: TeleporterRegistry address required when deploy is false' };
+    }
+    if (params.homeChain.teleporterRegistry.contractAddress && !ethers.isAddress(params.homeChain.teleporterRegistry.contractAddress)) {
+      return { valid: false, error: 'Home chain: Invalid TeleporterRegistry address' };
+    }
+
+    // Validate remote chain
+    if (!params.remoteChain.rpcUrl) {
+      return { valid: false, error: 'Remote chain RPC URL is required' };
+    }
+    if (!params.remoteChain.blockchainId) {
+      return { valid: false, error: 'Remote chain blockchain ID is required' };
+    }
+    if (!params.remoteChain.teleporterManagerAddress || !ethers.isAddress(params.remoteChain.teleporterManagerAddress)) {
+      return { valid: false, error: 'Valid remote chain teleporter manager address is required' };
+    }
+    if (!params.remoteChain.tokenName || !params.remoteChain.tokenSymbol) {
+      return { valid: false, error: 'Remote chain token name and symbol are required' };
+    }
+    
+    // Validate remote chain teleporter configs
+    if (!params.remoteChain.teleporterMessenger.deploy && !params.remoteChain.teleporterMessenger.contractAddress) {
+      return { valid: false, error: 'Remote chain: TeleporterMessenger address required when deploy is false' };
+    }
+    if (params.remoteChain.teleporterMessenger.contractAddress && !ethers.isAddress(params.remoteChain.teleporterMessenger.contractAddress)) {
+      return { valid: false, error: 'Remote chain: Invalid TeleporterMessenger address' };
+    }
+    if (!params.remoteChain.teleporterRegistry.deploy && !params.remoteChain.teleporterRegistry.contractAddress) {
+      return { valid: false, error: 'Remote chain: TeleporterRegistry address required when deploy is false' };
+    }
+    if (params.remoteChain.teleporterRegistry.contractAddress && !ethers.isAddress(params.remoteChain.teleporterRegistry.contractAddress)) {
+      return { valid: false, error: 'Remote chain: Invalid TeleporterRegistry address' };
+    }
+
+    return { valid: true };
   }
 
-  // Validate remote chain
-  if (!params.remoteChain.rpcUrl) {
-    return { valid: false, error: 'Remote chain RPC URL is required' };
-  }
-  if (!params.remoteChain.blockchainId) {
-    return { valid: false, error: 'Remote chain blockchain ID is required' };
-  }
-  if (!params.remoteChain.teleporterManagerAddress || !ethers.isAddress(params.remoteChain.teleporterManagerAddress)) {
-    return { valid: false, error: 'Valid remote chain teleporter manager address is required' };
-  }
-  if (!params.remoteChain.tokenName || !params.remoteChain.tokenSymbol) {
-    return { valid: false, error: 'Remote chain token name and symbol are required' };
-  }
-  
-  // Validate remote chain teleporter configs
-  if (!params.remoteChain.teleporterMessenger.deploy && !params.remoteChain.teleporterMessenger.contractAddress) {
-    return { valid: false, error: 'Remote chain: TeleporterMessenger address required when deploy is false' };
-  }
-  if (params.remoteChain.teleporterMessenger.contractAddress && !ethers.isAddress(params.remoteChain.teleporterMessenger.contractAddress)) {
-    return { valid: false, error: 'Remote chain: Invalid TeleporterMessenger address' };
-  }
-  if (!params.remoteChain.teleporterRegistry.deploy && !params.remoteChain.teleporterRegistry.contractAddress) {
-    return { valid: false, error: 'Remote chain: TeleporterRegistry address required when deploy is false' };
-  }
-  if (params.remoteChain.teleporterRegistry.contractAddress && !ethers.isAddress(params.remoteChain.teleporterRegistry.contractAddress)) {
-    return { valid: false, error: 'Remote chain: Invalid TeleporterRegistry address' };
-  }
-
-  return { valid: true };
-}
-
-/**
- * Deploy the complete cross-chain bridge infrastructure
- */
-export async function deployUnifiedBridge(
-  params: UnifiedDeploymentParams,
-  rayId?: string
-): Promise<UnifiedDeploymentResult> {
-  const timestamp = new Date().toISOString();
+  /**
+   * Deploy the complete cross-chain bridge infrastructure
+   */
+  static async deployUnifiedBridge(
+    params: UnifiedDeploymentParams,
+    rayId?: string
+  ): Promise<UnifiedDeploymentResult> {
+  const timestamp = new Date().toISOString(); 
   
   logger.info('\n========================================',);
   logger.info('🚀 UNIFIED BRIDGE DEPLOYMENT STARTED', { rayId, functionName: 'deployUnifiedBridge' });
@@ -328,7 +337,8 @@ export async function deployUnifiedBridge(
       rpcUrl: params.homeChain.rpcUrl,
       constructorArgs: [
         homeRegistryAddress,
-        temporaryRemoteAddress, // Will be updated with actual TokenRemote address
+        params.homeChain.teleporterManagerAddress,
+        1, // minTeleporterVersion
         params.homeChain.tokenAddress,
         params.homeChain.tokenDecimals,
       ],
@@ -351,14 +361,17 @@ export async function deployUnifiedBridge(
     const remoteTokenResult = await deployERC20TokenRemote({
       rpcUrl: params.remoteChain.rpcUrl,
       constructorArgs: [
-        remoteRegistryAddress,
-        params.remoteChain.teleporterManagerAddress,
-        params.homeChain.blockchainId, // Source blockchain ID (home chain)
-        homeTokenResult.contractAddress, // TokenHome address from step 5
-        params.remoteChain.initialReserveImbalance,
-        params.remoteChain.tokenDecimals,
+        {
+          teleporterRegistryAddress: remoteRegistryAddress,
+          teleporterManager: params.remoteChain.teleporterManagerAddress,
+          minTeleporterVersion: 1,
+          tokenHomeBlockchainID: params.homeChain.blockchainId, // Source blockchain ID (home chain)
+          tokenHomeAddress: homeTokenResult.contractAddress, // TokenHome address from step 5
+          tokenHomeDecimals: params.homeChain.tokenDecimals,
+        },
         params.remoteChain.tokenName,
         params.remoteChain.tokenSymbol,
+        params.remoteChain.tokenDecimals,
       ],
       gasLimit: params.remoteChain.gasLimit || 5000000,
     });
@@ -379,7 +392,7 @@ export async function deployUnifiedBridge(
     // STEP 8: Call RegisterWithHome on TokenRemote
     // ========================================
     logger.info('📍 STEP 8/9: Calling RegisterWithHome on TokenRemote');
-    const registerWithHomeResult = await registerTokenRemoteWithHome({
+    const registerWithHomeResult = await UnifiedBridgeDeploymentService.registerTokenRemoteWithHome({
       rpcUrl: params.remoteChain.rpcUrl,
       tokenRemoteAddress: remoteTokenResult.contractAddress,
       feeTokenAddress: params.homeChain.tokenAddress, // Use the same token we're bridging
@@ -388,7 +401,10 @@ export async function deployUnifiedBridge(
     });
     
     if (!registerWithHomeResult.success) {
-      console.error(`⚠️  Warning: Failed to call RegisterWithHome: ${registerWithHomeResult.error}`);
+      logger.error(`⚠️  Warning: Failed to call RegisterWithHome: ${registerWithHomeResult.error}`);
+    } else {
+      logger.info(`✅ RegisterWithHome call successful`);
+      logger.info(`Transaction hash: ${registerWithHomeResult.transactionHash}`);
     }
     logger.info('');
 
@@ -472,8 +488,8 @@ export async function deployUnifiedBridge(
       deployerAddress,
     };
   } catch (error) {
-    console.error('\n❌ UNIFIED BRIDGE DEPLOYMENT FAILED');
-    console.error('Error:', error instanceof Error ? error.message : error);
+    logger.error('\n❌ UNIFIED BRIDGE DEPLOYMENT FAILED');
+    logger.error('Error:', error instanceof Error ? error.message : error);
     logger.info('');
     
     return {
@@ -484,6 +500,102 @@ export async function deployUnifiedBridge(
       remoteChain: {} as any,
       deployerAddress: '',
     };
+  }
+  }
+
+  /**
+   * Register ERC20TokenRemote address in the TokenHome contract
+   */
+  static async registerERC20TokenRemoteInTokenHome(
+    params: RegisterRemoteInHomeParams
+  ): Promise<{ success: boolean; transactionHash?: string; error?: string }> {
+    try {
+      logger.info('Registering TokenRemote in TokenHome...');
+      logger.info(`TokenHome Address: ${params.tokenHomeAddress}`);
+      logger.info(`TokenRemote Address: ${params.tokenRemoteAddress}`);
+      
+      const wallet = getWallet(params.rpcUrl);
+      const tokenHomeContract = new ethers.Contract(
+        params.tokenHomeAddress,
+        erc20TokenHomeAbi.abi,
+        wallet
+      );
+
+      // Call registerWithRemote function on TokenHome
+      const tx = await tokenHomeContract.registerWithRemote(
+        params.remoteBlockchainId,
+        params.tokenRemoteAddress,
+        { gasLimit: params.gasLimit || 500000 }
+      );
+
+      logger.info(`Transaction sent: ${tx.hash}`);
+      logger.info('Waiting for confirmation...');
+      
+      const receipt = await tx.wait();
+      logger.info(`✅ TokenRemote registered in TokenHome. Gas used: ${receipt.gasUsed.toString()}`);
+
+      return {
+        success: true,
+        transactionHash: tx.hash,
+      };
+    } catch (error) {
+      logger.error('Failed to register TokenRemote in TokenHome:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  /**
+   * Call RegisterWithHome function on TokenRemote contract
+   * This registers the remote token with the home token and provides fee information
+   */
+  static async registerTokenRemoteWithHome(
+    params: RegisterWithHomeParams
+  ): Promise<{ success: boolean; transactionHash?: string; error?: string }> {
+    try {
+      logger.info('Calling RegisterWithHome on TokenRemote...');
+      logger.info(`TokenRemote Address: ${params.tokenRemoteAddress}`);
+      logger.info(`Fee Token Address: ${params.feeTokenAddress}`);
+      logger.info(`Fee Amount: ${params.feeAmount}`);
+      
+      const wallet = getWallet(params.rpcUrl);
+      const tokenRemoteContract = new ethers.Contract(
+        params.tokenRemoteAddress,
+        erc20TokenRemoteAbi.abi,
+        wallet
+      );
+
+      // Create TeleporterFeeInfo struct
+      const feeInfo = {
+        feeTokenAddress: params.feeTokenAddress,
+        amount: params.feeAmount,
+      };
+
+      // Call registerWithHome function on TokenRemote
+      const tx = await tokenRemoteContract.registerWithHome(
+        feeInfo,
+        { gasLimit: params.gasLimit || 500000 }
+      );
+
+      logger.info(`Transaction sent: ${tx.hash}`);
+      logger.info('Waiting for confirmation...');
+      
+      const receipt = await tx.wait();
+      logger.info(`✅ TokenRemote registered with Home. Gas used: ${receipt.gasUsed.toString()}`);
+
+      return {
+        success: true,
+        transactionHash: tx.hash,
+      };
+    } catch (error) {
+      logger.error('Failed to call RegisterWithHome:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
   }
 }
 
@@ -498,47 +610,6 @@ interface RegisterRemoteInHomeParams {
   gasLimit?: number;
 }
 
-export async function registerERC20TokenRemoteInTokenHome(
-  params: RegisterRemoteInHomeParams
-): Promise<{ success: boolean; transactionHash?: string; error?: string }> {
-  try {
-    logger.info('Registering TokenRemote in TokenHome...');
-    logger.info(`TokenHome Address: ${params.tokenHomeAddress}`);
-    logger.info(`TokenRemote Address: ${params.tokenRemoteAddress}`);
-    
-    const wallet = getWallet(params.rpcUrl);
-    const tokenHomeContract = new ethers.Contract(
-      params.tokenHomeAddress,
-      erc20TokenHomeAbi.abi,
-      wallet
-    );
-
-    // Call registerWithRemote function on TokenHome
-    const tx = await tokenHomeContract.registerWithRemote(
-      params.remoteBlockchainId,
-      params.tokenRemoteAddress,
-      { gasLimit: params.gasLimit || 500000 }
-    );
-
-    logger.info(`Transaction sent: ${tx.hash}`);
-    logger.info('Waiting for confirmation...');
-    
-    const receipt = await tx.wait();
-    logger.info(`✅ TokenRemote registered in TokenHome. Gas used: ${receipt.gasUsed.toString()}`);
-
-    return {
-      success: true,
-      transactionHash: tx.hash,
-    };
-  } catch (error) {
-    console.error('Failed to register TokenRemote in TokenHome:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
-}
-
 /**
  * Call RegisterWithHome function on TokenRemote contract
  * This registers the remote token with the home token and provides fee information
@@ -551,50 +622,9 @@ interface RegisterWithHomeParams {
   gasLimit?: number;
 }
 
-export async function registerTokenRemoteWithHome(
-  params: RegisterWithHomeParams
-): Promise<{ success: boolean; transactionHash?: string; error?: string }> {
-  try {
-    logger.info('Calling RegisterWithHome on TokenRemote...');
-    logger.info(`TokenRemote Address: ${params.tokenRemoteAddress}`);
-    logger.info(`Fee Token Address: ${params.feeTokenAddress}`);
-    logger.info(`Fee Amount: ${params.feeAmount}`);
-    
-    const wallet = getWallet(params.rpcUrl);
-    const tokenRemoteContract = new ethers.Contract(
-      params.tokenRemoteAddress,
-      erc20TokenRemoteAbi.abi,
-      wallet
-    );
-
-    // Create TeleporterFeeInfo struct
-    const feeInfo = {
-      feeTokenAddress: params.feeTokenAddress,
-      amount: params.feeAmount,
-    };
-
-    // Call registerWithHome function on TokenRemote
-    const tx = await tokenRemoteContract.registerWithHome(
-      feeInfo,
-      { gasLimit: params.gasLimit || 500000 }
-    );
-
-    logger.info(`Transaction sent: ${tx.hash}`);
-    logger.info('Waiting for confirmation...');
-    
-    const receipt = await tx.wait();
-    logger.info(`✅ TokenRemote registered with Home. Gas used: ${receipt.gasUsed.toString()}`);
-
-    return {
-      success: true,
-      transactionHash: tx.hash,
-    };
-  } catch (error) {
-    console.error('Failed to call RegisterWithHome:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
-}
+// Export legacy functions for backward compatibility
+export const validateUnifiedDeploymentParams = UnifiedBridgeDeploymentService.validateUnifiedDeploymentParams;
+export const deployUnifiedBridge = UnifiedBridgeDeploymentService.deployUnifiedBridge;
+export const registerERC20TokenRemoteInTokenHome = UnifiedBridgeDeploymentService.registerERC20TokenRemoteInTokenHome;
+export const registerTokenRemoteWithHome = UnifiedBridgeDeploymentService.registerTokenRemoteWithHome;
 
