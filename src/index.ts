@@ -1,3 +1,5 @@
+import dns from 'node:dns';
+dns.setDefaultResultOrder('ipv4first');
 import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { env } from './config/env';
@@ -47,16 +49,16 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 });
 
 // Start server
-app.listen(PORT, () => {
-  logger.info(`
-╔═══════════════════════════════════════╗
-║   Avalink Backend Server Started      ║
-╠═══════════════════════════════════════╣
-║  Port: ${PORT}                           ║
-║  Environment: ${env.NODE_ENV}             ║
-║  Check: http://localhost:${PORT}         ║
-╚═══════════════════════════════════════╝
-  `);
+console.log('About to start server on port ' + PORT);
+
+const server = app.listen(PORT, () => {
+  logger.info(`Server started on port ${PORT} in ${env.NODE_ENV} environment. \n 
+    http://localhost:${PORT}`);
+});
+
+server.on('error', (err) => {
+  console.error('Server error:', err);
+  process.exit(1);
 });
 
 export default app;

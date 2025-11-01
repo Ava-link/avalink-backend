@@ -25,13 +25,8 @@ const envSchema = z.object({
   PORT: z.string().default('3001').transform(Number),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 
-  // Database Configuration
-  DB_HOST: z.string().min(1, 'Database host is required'),
-  DB_PORT: z.string().default('5432').transform(Number),
-  DB_NAME: z.string().min(1, 'Database name is required'),
-  DB_USER: z.string().min(1, 'Database user is required'),
-  DB_PASSWORD: z.string().min(1, 'Database password is required'),
-  DB_SSL: z.string().default('true').transform((val) => val === 'true'),
+  // Database Configuration (Supabase)
+  DATABASE_URL: z.string().url('Valid database URL is required').min(1, 'Database URL is required'),
 
   // Database Pool Configuration
   DB_MAX_CONNECTIONS: z.string().default('20').transform(Number),
