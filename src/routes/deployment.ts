@@ -8,6 +8,8 @@ import {
   getArtifactsController,
   deployUnifiedBridgeController,
   getIcttSetupsController,
+  getChainsController,
+  getIcttSetupController,
 } from '../controllers/deployment.controller';
 
 const router = Router();
@@ -41,6 +43,11 @@ router.get('/artifacts/:contractName', getArtifactsController);
 
 // Get all ictt
 router.get("/ictt", getIcttSetupsController);
+
+// Get all chains
+router.get("/chains", getChainsController);
+
+router.get("/ictt/:homeChainId", getIcttSetupController);
 
 export default router;
 

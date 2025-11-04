@@ -14,7 +14,7 @@ import {
 } from '../services/deployment';
 import { getWalletAddress, getWalletBalance } from '../config/wallet';
 import logger, { logFunctionEntry } from '../config/logger';
-import { getIcttSetups } from '../services/deployment.prisma.service';
+import { getChains, getIcttSetup, getIcttSetups } from '../services/deployment.prisma.service';
 
 /**
  * Deployment Controller
@@ -321,6 +321,46 @@ export async function getIcttSetupsController(req: Request, res: Response) {
   }
   catch(error) {
     logger.error("Error in getIcttSetupsController", { rayId: req.rayId, functionName: 'getIcttSetupsController', error: error instanceof Error ? error.message : 'Unknown error' });
+    return res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      rayId: req.rayId,
+    });
+  }
+}
+
+export async function getChainsController(req: Request, res: Response) {
+  logFunctionEntry('getChainsController', req.rayId);
+  try {
+    const chains = await getChains();
+    return res.json({
+      success: true,
+      chains,
+      rayId: req.rayId,
+    });
+  }
+  catch(error) {
+    logger.error("Error in getChainsController", { rayId: req.rayId, functionName: 'getChainsController', error: error instanceof Error ? error.message : 'Unknown error' });
+    return res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      rayId: req.rayId,
+    });
+  }
+}
+
+export async function getIcttSetupController(req: Request, res: Response) {
+  logFunctionEntry('getIcttSetupController', req.rayId);
+  try {
+    const { homeChainId } = req.params;
+    const icttSetup = await getIcttSetup(homeChainId);
+    return res.json({
+      success: true,
+      icttSetup,
+      rayId: req.rayId,
+    });
+  } catch (error) {
+    logger.error("Error in getIcttSetupController", { rayId: req.rayId, functionName: 'getIcttSetupController', error: error instanceof Error ? error.message : 'Unknown error' });
     return res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',

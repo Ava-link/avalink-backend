@@ -292,6 +292,79 @@ export async function getIcttSetups() {
 }
 
 
+export async function getChains() {
+  try {
+    const chains = await prisma.chain.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        name: true,
+        chainId: true,
+        isTestnet: true,
+        explorerUrl: true,
+        logoUrl: true,
+
+        // Native Token Info
+        nativeTokenName: true,
+        nativeTokenSymbol: true,
+
+        // ICTT Config
+        hasIcmEnabled: true,
+      },
+    });
+
+    return chains;
+  } catch (error) {
+    logger.error('Error getting chains:', error);
+  }
+}
+
+export async function getIcttSetup(homeChainId: string) {
+  try {
+    const icttSetup = await prisma.icttSetup.findMany({
+      where: { tokenHomeChainId: homeChainId, isActive: true },
+      select: {
+        id: true,
+        setupName: true,
+        tokenHomeAddress: true,
+        tokenRemoteAddress: true,
+        tokenHomeChain: {
+          select: {
+            name: true,
+            isTestnet: true,
+            logoUrl: true,
+            teleporterAddress: true,
+            teleporterRegistryAddress: true,
+            hasIcmEnabled: true,
+            explorerUrl: true,
+            nativeTokenName: true,
+            nativeTokenSymbol: true,
+            blockchainId: true,
+          },
+        },
+        tokenRemoteChain: {
+          select: {
+            name: true,
+            isTestnet: true,
+            logoUrl: true,
+            teleporterAddress: true,
+            teleporterRegistryAddress: true,
+            hasIcmEnabled: true,
+            explorerUrl: true,
+            nativeTokenName: true,
+            nativeTokenSymbol: true,
+            blockchainId: true,
+          },
+        },
+      },
+    });
+    return icttSetup;
+  }
+  catch(error) {
+    logger.error('Error getting ICTT setup:', error);
+  }
+}
+
 /*
  * Disconnect Prisma Client
  */

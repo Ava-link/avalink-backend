@@ -28,6 +28,7 @@ model Chain {
   // ICTT Configuration
   teleporterAddress          String?  @map("teleporter_address") @db.VarChar(42)
   teleporterRegistryAddress  String?  @map("teleporter_registry_address") @db.VarChar(42)
+  teleporterManagerAddress String? @map("teleporter_manager_address") @db.VarChar(42)
   hasIcmEnabled              Boolean  @default(false) @map("has_icm_enabled")
   hasInHouseIcm              Boolean  @default(false) @map("has_in_house_icm")
   
