@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import logger from '../config/logger';
+import { getChainMetadataFromAvaCloud, getChainIdFromRpc } from '../config/utils'
 
 const prisma = new PrismaClient();
 
@@ -44,34 +45,53 @@ export async function findOrCreateChain(
       return existingChain;
     }
 
-    // Create new chain if not found
     logger.info(`Chain not found, creating new entry for blockchainId: ${blockchainId}`);
-    
+
+    // Get numeric EVM chainId from RPC
+    let evmChainId: number | undefined;
+    if (chainData.rpcUrl) {
+      logger.info(`Fetching chainId from RPC: ${chainData.rpcUrl}`);
+      evmChainId = await getChainIdFromRpc(chainData.rpcUrl);
+      logger.info(`Retrieved EVM chainId: ${evmChainId}`);
+    } else if (chainData.chainId) {
+      // Only use provided chainId if no RPC is available
+      evmChainId = typeof chainData.chainId === 'string' 
+        ? parseInt(chainData.chainId) 
+        : chainData.chainId;
+    }
+
+    // Fetch metadata from AvaCloud if we have chainId
+    let metadata: any = {};
+    if (evmChainId) {
+      logger.info(`Fetching chain metadata from AvaCloud for chainId: ${evmChainId}`);
+      metadata = await getChainMetadataFromAvaCloud(evmChainId);
+    }
+    // Create new chain with fetched metadata as fallback
     const newChain = await prisma.chain.create({
       data: {
-        chainId: chainData.chainId || blockchainId, // Use blockchainId as chainId if not provided
+        chainId: evmChainId?.toString() || blockchainId.toString(),
         blockchainId,
-        name: chainData.name || `Chain ${blockchainId.slice(0, 8)}...`,
-        nativeTokenName: chainData.nativeTokenName || 'AVAX',
-        nativeTokenSymbol: chainData.nativeTokenSymbol || 'AVAX',
-        nativeTokenDecimals: chainData.nativeTokenDecimals || 18,
+        name: metadata.name || chainData.name || `Chain ${blockchainId.slice(0, 8)}...`,
+        nativeTokenName: metadata.nativeTokenName || chainData.nativeTokenName || '',
+        nativeTokenSymbol: metadata.nativeTokenSymbol   || chainData.nativeTokenSymbol || '',
+        nativeTokenDecimals: metadata.nativeTokenDecimals || chainData.nativeTokenDecimals || 18,
         teleporterAddress: chainData.teleporterAddress,
         teleporterRegistryAddress: chainData.teleporterRegistryAddress,
         hasIcmEnabled: chainData.hasIcmEnabled ?? true,
         hasInHouseIcm: chainData.hasInHouseIcm ?? false,
         isActive: chainData.isActive ?? true,
         isTestnet: chainData.isTestnet ?? true,
-        explorerUrl: chainData.explorerUrl,
+        explorerUrl: metadata.explorerUrl || chainData.explorerUrl,
         nativeTokenAddress: chainData.nativeTokenAddress,
         nativeTokenLogoUrl: chainData.nativeTokenLogoUrl,
-        logoUrl: chainData.logoUrl,
+        logoUrl: metadata.logoUrl || chainData.logoUrl,
         websiteUrl: chainData.websiteUrl,
         description: chainData.description,
       },
     });
 
     logger.info(`✅ New chain created: ${newChain.name} (${newChain.id})`);
-    
+
     // Create RPC entry for the chain if rpcUrl is provided
     if (chainData.rpcUrl) {
       await prisma.chainRpc.create({
@@ -82,7 +102,7 @@ export async function findOrCreateChain(
           priority: 1,
         },
       });
-      logger.info(`✅ RPC endpoint added for chain: ${chainData.rpcUrl}`);
+      logger.info(`✅ RPC endpoint added for chain: ${chainData.rpcUrl}`) ;
     }
 
     return newChain;
@@ -225,11 +245,41 @@ export async function createIcttSetup(data: {
   }
 }
 
-export async function getIcttSetups (){
-  try{
+export async function getIcttSetups() {
+  try {
     const icttSetups = await prisma.icttSetup.findMany({
-      where: {
-        isActive: true,
+      where: { isActive: true },
+      select: {
+        id: true,
+        setupName: true,
+        tokenHomeAddress: true,
+        tokenRemoteAddress: true,
+        tokenHomeChain: {
+          select: {
+            name: true,
+            isTestnet: true,
+            logoUrl: true,
+            teleporterAddress: true,
+            teleporterRegistryAddress: true,
+            hasIcmEnabled: true,
+            explorerUrl: true,
+            nativeTokenName: true,
+            nativeTokenSymbol: true,
+          },
+        },
+        tokenRemoteChain: {
+          select: {
+            name: true,
+            isTestnet: true,
+            logoUrl: true,
+            teleporterAddress: true,
+            teleporterRegistryAddress: true,
+            hasIcmEnabled: true,
+            explorerUrl: true,
+            nativeTokenName: true,
+            nativeTokenSymbol: true,
+          },
+        },
       },
     });
     return icttSetups;
@@ -238,6 +288,7 @@ export async function getIcttSetups (){
     throw error;
   }
 }
+
 
 /*
  * Disconnect Prisma Client

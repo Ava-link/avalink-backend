@@ -36,6 +36,9 @@ const envSchema = z.object({
   // Blockchain Configuration
   DEPLOYER_PRIVATE_KEY: z.string().min(1, 'Deployer private key is required'),
   DEFAULT_GAS_LIMIT: z.string().default('5000000').transform(Number),
+
+  // avaCloud
+  AVACLOUD_API_KEY: z.string(),
 });
 
 /**
