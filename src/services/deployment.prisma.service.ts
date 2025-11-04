@@ -265,6 +265,7 @@ export async function getIcttSetups() {
             explorerUrl: true,
             nativeTokenName: true,
             nativeTokenSymbol: true,
+            blockchainId: true,
           },
         },
         tokenRemoteChain: {
@@ -278,6 +279,7 @@ export async function getIcttSetups() {
             explorerUrl: true,
             nativeTokenName: true,
             nativeTokenSymbol: true,
+            blockchainId: true,
           },
         },
       },
