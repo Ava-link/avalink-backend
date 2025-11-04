@@ -10,6 +10,7 @@ import { getWallet } from '../../config/wallet';
 import erc20TokenRemoteAbi from '../../abi/ERC20TokenRemote.json';
 import erc20TokenHomeAbi from '../../abi/ERC20TokenHome.json';
 import logger from '../../config/logger';
+import { findOrCreateChain, updateChainTeleporterAddresses } from '../deployment.prisma.service';
 
 /**
  * Unified Bridge Deployment Service
@@ -198,6 +199,57 @@ export class UnifiedBridgeDeploymentService {
     let deployerAddress = '';
 
     // ========================================
+    // STEP 0: Ensure chains exist in database
+    // ========================================
+    logger.info('📍 STEP 0/6: Checking and creating chain entries in database',);
+    
+    // Create or find home chain
+    const homeChain = await findOrCreateChain(params.homeChain.blockchainId, {
+      blockchainId: params.homeChain.blockchainId,
+      chainId: params.homeChain.blockchainId,
+      name: `Home Chain ${params.homeChain.blockchainId.slice(0, 10)}...`,
+      rpcUrl: params.homeChain.rpcUrl,
+      nativeTokenName: 'AVAX',
+      nativeTokenSymbol: 'AVAX',
+      nativeTokenDecimals: 18,
+      teleporterAddress: params.homeChain.teleporterMessenger.deploy 
+        ? undefined 
+        : params.homeChain.teleporterMessenger.contractAddress,
+      teleporterRegistryAddress: params.homeChain.teleporterRegistry.deploy 
+        ? undefined 
+        : params.homeChain.teleporterRegistry.contractAddress,
+      hasIcmEnabled: true,
+      hasInHouseIcm: true,
+      isActive: true,
+      isTestnet: true,
+    });
+
+    // Create or find remote chain
+    const remoteChain = await findOrCreateChain(params.remoteChain.blockchainId, {
+      blockchainId: params.remoteChain.blockchainId,
+      chainId: params.remoteChain.blockchainId,
+      name: `Remote Chain ${params.remoteChain.blockchainId.slice(0, 10)}...`,
+      rpcUrl: params.remoteChain.rpcUrl,
+      nativeTokenName: params.remoteChain.tokenName || 'AVAX',
+      nativeTokenSymbol: params.remoteChain.tokenSymbol || 'AVAX',
+      nativeTokenDecimals: params.remoteChain.tokenDecimals || 18,
+      teleporterAddress: params.remoteChain.teleporterMessenger.deploy 
+        ? undefined 
+        : params.remoteChain.teleporterMessenger.contractAddress,
+      teleporterRegistryAddress: params.remoteChain.teleporterRegistry.deploy 
+        ? undefined 
+        : params.remoteChain.teleporterRegistry.contractAddress,
+      hasIcmEnabled: true,
+      hasInHouseIcm: true,
+      isActive: true,
+      isTestnet: true,
+    });
+
+    logger.info(`✅ Home chain: ${homeChain.name} (DB ID: ${homeChain.id})`);
+    logger.info(`✅ Remote chain: ${remoteChain.name} (DB ID: ${remoteChain.id})`);
+    logger.info('');
+
+    // ========================================
     // STEP 1: Deploy/Use TeleporterMessenger on HOME CHAIN
     // ========================================
     logger.info('📍 STEP 1/6: Setting up TeleporterMessenger on Home Chain',);
@@ -322,6 +374,23 @@ export class UnifiedBridgeDeploymentService {
       logger.info(`✅ Using existing TeleporterRegistry at: ${remoteRegistryAddress}`);
     }
     logger.info('');
+
+    // Update database with deployed teleporter addresses
+    if (params.homeChain.teleporterMessenger.deploy || params.homeChain.teleporterRegistry.deploy) {
+      await updateChainTeleporterAddresses(
+        params.homeChain.blockchainId,
+        homeMessengerAddress,
+        homeRegistryAddress
+      );
+    }
+    
+    if (params.remoteChain.teleporterMessenger.deploy || params.remoteChain.teleporterRegistry.deploy) {
+      await updateChainTeleporterAddresses(
+        params.remoteChain.blockchainId,
+        remoteMessengerAddress,
+        remoteRegistryAddress
+      );
+    }
 
     // ========================================
     // STEP 5: Deploy ERC20TokenHome on HOME CHAIN

@@ -12,7 +12,7 @@ const pool = new Pool({
   user: config.user || undefined,
   password: config.password || undefined,
   ssl: {
-    rejectUnauthorized: false // Supabase requires SSL
+    rejectUnauthorized: false
   },
   max: env.DB_MAX_CONNECTIONS,
   idleTimeoutMillis: env.DB_IDLE_TIMEOUT,

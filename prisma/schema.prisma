@@ -1,0 +1,437 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Chain {
+  id                         String   @id @default(uuid()) @db.Uuid
+  chainId                    String   @unique @map("chain_id") @db.VarChar(100)
+  blockchainId               String   @unique @map("blockchain_id") @db.VarChar(100)
+  name                       String   @db.VarChar(100)
+  explorerUrl                String?  @map("explorer_url") @db.VarChar(500)
+  
+  // Native Token Info
+  nativeTokenName            String   @map("native_token_name") @db.VarChar(100)
+  nativeTokenSymbol          String   @map("native_token_symbol") @db.VarChar(20)
+  nativeTokenAddress         String?  @map("native_token_address") @db.VarChar(42)
+  nativeTokenDecimals        Int      @default(18) @map("native_token_decimals")
+  nativeTokenLogoUrl         String?  @map("native_token_logo_url") @db.VarChar(500)
+  
+  // ICTT Configuration
+  teleporterAddress          String?  @map("teleporter_address") @db.VarChar(42)
+  teleporterRegistryAddress  String?  @map("teleporter_registry_address") @db.VarChar(42)
+  hasIcmEnabled              Boolean  @default(false) @map("has_icm_enabled")
+  hasInHouseIcm              Boolean  @default(false) @map("has_in_house_icm")
+  
+  // Chain Status
+  isActive                   Boolean  @default(true) @map("is_active")
+  isTestnet                  Boolean  @default(false) @map("is_testnet")
+  
+  // Metadata
+  logoUrl                    String?  @map("logo_url") @db.VarChar(500)
+  websiteUrl                 String?  @map("website_url") @db.VarChar(500)
+  description                String?  @db.Text
+  
+  createdAt                  DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt                  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  rpcs                       ChainRpc[]
+  tokens                     Token[]
+  deployedContracts          DeployedContract[]
+  icttSetupsAsHome           IcttSetup[]           @relation("HomeChain")
+  icttSetupsAsRemote         IcttSetup[]           @relation("RemoteChain")
+  bridgeOperationsAsSource   BridgeOperation[]     @relation("SourceChain")
+  bridgeOperationsAsDest     BridgeOperation[]     @relation("DestinationChain")
+  transactions               Transaction[]
+
+  @@index([chainId], map: "idx_chains_chain_id")
+  @@index([isActive], map: "idx_chains_active")
+  @@map("chains")
+}
+
+model ChainRpc {
+  id                  String   @id @default(uuid()) @db.Uuid
+  chainId             String   @map("chain_id") @db.Uuid
+  
+  rpcUrl              String   @map("rpc_url") @db.VarChar(500)
+  rpcType             String   @default("http") @map("rpc_type") @db.VarChar(50)
+  
+  // Priority & Status
+  isActive            Boolean  @default(true) @map("is_active")
+  priority            Int      @default(0)
+  isPrimary           Boolean  @default(false) @map("is_primary")
+  
+  // Rate Limiting
+  rateLimitPerSecond  Int?     @map("rate_limit_per_second")
+  requiresApiKey      Boolean  @default(false) @map("requires_api_key")
+  
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt           DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  chain               Chain    @relation(fields: [chainId], references: [id], onDelete: Cascade)
+
+  @@unique([chainId, rpcUrl])
+  @@index([chainId], map: "idx_chain_rpcs_chain")
+  @@index([isActive, priority(sort: Desc)], map: "idx_chain_rpcs_active")
+  @@index([chainId, isPrimary], map: "idx_chain_rpcs_primary")
+  @@map("chain_rpcs")
+}
+
+model Token {
+  id              String   @id @default(uuid()) @db.Uuid
+  chainId         String   @map("chain_id") @db.Uuid
+  
+  address         String   @db.VarChar(42)
+  symbol          String   @db.VarChar(20)
+  name            String   @db.VarChar(100)
+  decimals        Int      @default(18)
+  tokenType       String   @map("token_type") @db.VarChar(20)
+  
+  // Bridge Status
+  hasBridge       Boolean  @default(false) @map("has_bridge")
+  isBridgeable    Boolean  @default(true) @map("is_bridgeable")
+  
+  // Token Info
+  logoUrl         String?  @map("logo_url") @db.VarChar(500)
+  totalSupply     Decimal? @map("total_supply") @db.Decimal(78, 0)
+  coingeckoId     String?  @map("coingecko_id") @db.VarChar(100)
+  
+  // Metadata
+  description     String?  @db.Text
+  
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  chain                      Chain             @relation(fields: [chainId], references: [id], onDelete: Cascade)
+  icttSetupsAsHome           IcttSetup[]       @relation("HomeToken")
+  icttSetupsAsRemote         IcttSetup[]       @relation("RemoteToken")
+  tokenPairsAsSource         TokenPair[]       @relation("SourceToken")
+  tokenPairsAsDestination    TokenPair[]       @relation("DestinationToken")
+  bridgeOperationsAsSource   BridgeOperation[] @relation("SourceToken")
+  bridgeOperationsAsDest     BridgeOperation[] @relation("DestinationToken")
+
+  @@unique([chainId, address])
+  @@index([chainId], map: "idx_tokens_chain")
+  @@index([symbol], map: "idx_tokens_symbol")
+  @@index([isBridgeable], map: "idx_tokens_bridgeable")
+  @@index([address], map: "idx_tokens_address")
+  @@map("tokens")
+}
+
+model User {
+  id            String   @id @default(uuid()) @db.Uuid
+  walletAddress String   @unique @map("wallet_address") @db.VarChar(42)
+  
+  // Status
+  isActive      Boolean  @default(true) @map("is_active")
+  
+  // Metadata
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  lastActiveAt  DateTime @default(now()) @map("last_active_at") @db.Timestamp(6)
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  icttSetups        IcttSetup[]
+  bridgeOperations  BridgeOperation[]
+
+  @@index([walletAddress], map: "idx_users_wallet")
+  @@map("users")
+}
+
+model DeployedContract {
+  id                 String    @id @default(uuid()) @db.Uuid
+  chainId            String    @map("chain_id") @db.Uuid
+  
+  contractType       String    @map("contract_type") @db.VarChar(50)
+  address            String    @db.VarChar(42)
+  
+  // Deployment Details
+  deployerAddress    String?   @map("deployer_address") @db.VarChar(42)
+  deploymentTxHash   String?   @unique @map("deployment_tx_hash") @db.VarChar(66)
+  blockNumber        BigInt?   @map("block_number")
+  gasUsed            BigInt?   @map("gas_used")
+  
+  // Configuration
+  deploymentParams   Json?     @map("deployment_params")
+  constructorArgs    Json?     @map("constructor_args")
+  
+  // Status
+  isVerified         Boolean   @default(true) @map("is_verified")
+  isActive           Boolean   @default(true) @map("is_active")
+  
+  deployedAt         DateTime? @map("deployed_at") @db.Timestamp(6)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  chain                 Chain         @relation(fields: [chainId], references: [id], onDelete: Cascade)
+  icttSetupsAsHome      IcttSetup[]   @relation("HomeContract")
+  icttSetupsAsRemote    IcttSetup[]   @relation("RemoteContract")
+  transactions          Transaction[]
+
+  @@unique([chainId, address])
+  @@index([chainId], map: "idx_contracts_chain")
+  @@index([contractType], map: "idx_contracts_type")
+  @@index([address], map: "idx_contracts_address")
+  @@index([deploymentTxHash], map: "idx_contracts_tx_hash")
+  @@map("deployed_contracts")
+}
+
+model IcttSetup {
+  id                    String    @id @default(uuid()) @db.Uuid
+  setupName             String?   @map("setup_name") @db.VarChar(100)
+  
+  // Token Home (Source)
+  tokenHomeAddress      String    @map("token_home_address") @db.VarChar(42)
+  tokenHomeChainId      String    @map("token_home_chain_id") @db.Uuid
+  tokenHomeTokenId      String    @map("token_home_token_id") @db.Uuid
+  tokenHomeContractId   String?   @map("token_home_contract_id") @db.Uuid
+  
+  // Token Remote (Destination)
+  tokenRemoteAddress    String    @map("token_remote_address") @db.VarChar(42)
+  tokenRemoteChainId    String    @map("token_remote_chain_id") @db.Uuid
+  tokenRemoteTokenId    String    @map("token_remote_token_id") @db.Uuid
+  tokenRemoteContractId String?   @map("token_remote_contract_id") @db.Uuid
+  
+  // Status
+  isActive              Boolean   @default(true) @map("is_active")
+  setupStatus           String    @default("pending") @map("setup_status") @db.VarChar(20)
+  
+  // Metrics
+  totalVolume           Decimal   @default(0) @map("total_volume") @db.Decimal(78, 18)
+  totalTransactions     Int       @default(0) @map("total_transactions")
+  
+  // Metadata
+  deployedBy            String?   @map("deployed_by") @db.Uuid
+  deploymentConfig      Json?     @map("deployment_config")
+  
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  activatedAt           DateTime? @map("activated_at") @db.Timestamp(6)
+  updatedAt             DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  tokenHomeChain        Chain             @relation("HomeChain", fields: [tokenHomeChainId], references: [id])
+  tokenRemoteChain      Chain             @relation("RemoteChain", fields: [tokenRemoteChainId], references: [id])
+  tokenHomeToken        Token             @relation("HomeToken", fields: [tokenHomeTokenId], references: [id])
+  tokenRemoteToken      Token             @relation("RemoteToken", fields: [tokenRemoteTokenId], references: [id])
+  tokenHomeContract     DeployedContract? @relation("HomeContract", fields: [tokenHomeContractId], references: [id])
+  tokenRemoteContract   DeployedContract? @relation("RemoteContract", fields: [tokenRemoteContractId], references: [id])
+  deployedByUser        User?             @relation(fields: [deployedBy], references: [id])
+  tokenPairs            TokenPair[]
+  bridgeOperations      BridgeOperation[]
+
+  @@unique([tokenHomeChainId, tokenHomeAddress, tokenRemoteChainId, tokenRemoteAddress])
+  @@index([tokenHomeChainId], map: "idx_ictt_home_chain")
+  @@index([tokenRemoteChainId], map: "idx_ictt_remote_chain")
+  @@index([isActive, setupStatus], map: "idx_ictt_status")
+  @@index([tokenHomeTokenId], map: "idx_ictt_home_token")
+  @@index([tokenRemoteTokenId], map: "idx_ictt_remote_token")
+  @@map("ictt_setups")
+}
+
+model GlobalFeeConfig {
+  id                   String   @id @default(uuid()) @db.Uuid
+  
+  // Fee Structure
+  bridgeFeePercentage  Decimal  @default(0.001) @map("bridge_fee_percentage") @db.Decimal(5, 4)
+  
+  // Revenue Collection
+  feeCollectorAddress  String?  @map("fee_collector_address") @db.VarChar(42)
+  
+  // Status
+  isActive             Boolean  @default(true) @map("is_active")
+  
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt            DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  @@map("global_fee_config")
+}
+
+model TokenPair {
+  id                   String   @id @default(uuid()) @db.Uuid
+  
+  sourceTokenId        String   @map("source_token_id") @db.Uuid
+  destinationTokenId   String   @map("destination_token_id") @db.Uuid
+  icttSetupId          String?  @map("ictt_setup_id") @db.Uuid
+  
+  // Route Info
+  isActive             Boolean  @default(true) @map("is_active")
+  isDirect             Boolean  @default(true) @map("is_direct")
+  
+  // Liquidity Info
+  availableLiquidity   Decimal  @default(0) @map("available_liquidity") @db.Decimal(78, 18)
+  lockedLiquidity      Decimal  @default(0) @map("locked_liquidity") @db.Decimal(78, 18)
+  
+  // Performance Metrics
+  avgCompletionTime    Int?     @map("avg_completion_time")
+  successRate          Decimal? @map("success_rate") @db.Decimal(5, 4)
+  
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt            DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  sourceToken       Token             @relation("SourceToken", fields: [sourceTokenId], references: [id], onDelete: Cascade)
+  destinationToken  Token             @relation("DestinationToken", fields: [destinationTokenId], references: [id], onDelete: Cascade)
+  icttSetup         IcttSetup?        @relation(fields: [icttSetupId], references: [id])
+  bridgeOperations  BridgeOperation[]
+
+  @@unique([sourceTokenId, destinationTokenId])
+  @@index([sourceTokenId], map: "idx_token_pairs_source")
+  @@index([destinationTokenId], map: "idx_token_pairs_destination")
+  @@index([isActive], map: "idx_token_pairs_active")
+  @@map("token_pairs")
+}
+
+model BridgeOperation {
+  id                     String    @id @default(uuid()) @db.Uuid
+  
+  // User Info
+  userId                 String?   @map("user_id") @db.Uuid
+  userWallet             String    @map("user_wallet") @db.VarChar(42)
+  
+  // Bridge Details
+  icttSetupId            String    @map("ictt_setup_id") @db.Uuid
+  tokenPairId            String?   @map("token_pair_id") @db.Uuid
+  
+  // Source
+  sourceChainId          String    @map("source_chain_id") @db.Uuid
+  sourceTokenId          String    @map("source_token_id") @db.Uuid
+  sourceAmount           Decimal   @map("source_amount") @db.Decimal(78, 18)
+  sourceTxHash           String?   @map("source_tx_hash") @db.VarChar(66)
+  
+  // Destination
+  destinationChainId     String    @map("destination_chain_id") @db.Uuid
+  destinationTokenId     String    @map("destination_token_id") @db.Uuid
+  destinationAmount      Decimal?  @map("destination_amount") @db.Decimal(78, 18)
+  destinationAddress     String    @map("destination_address") @db.VarChar(42)
+  destinationTxHash      String?   @map("destination_tx_hash") @db.VarChar(66)
+  
+  // Fees
+  bridgeFee              Decimal   @default(0) @map("bridge_fee") @db.Decimal(78, 18)
+  bridgeFeePercentage    Decimal?  @map("bridge_fee_percentage") @db.Decimal(5, 4)
+  gasFee                 Decimal   @default(0) @map("gas_fee") @db.Decimal(78, 18)
+  
+  // Status Tracking
+  status                 String    @default("initiated") @db.VarChar(20)
+  failureReason          String?   @map("failure_reason") @db.Text
+  
+  // Timing
+  initiatedAt            DateTime  @default(now()) @map("initiated_at") @db.Timestamp(6)
+  confirmedAt            DateTime? @map("confirmed_at") @db.Timestamp(6)
+  completedAt            DateTime? @map("completed_at") @db.Timestamp(6)
+  
+  // Teleporter Message
+  teleporterMessageId    String?   @map("teleporter_message_id") @db.VarChar(66)
+  relayAttempts          Int       @default(0) @map("relay_attempts")
+  
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt              DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  user              User?      @relation(fields: [userId], references: [id])
+  icttSetup         IcttSetup  @relation(fields: [icttSetupId], references: [id])
+  tokenPair         TokenPair? @relation(fields: [tokenPairId], references: [id])
+  sourceChain       Chain      @relation("SourceChain", fields: [sourceChainId], references: [id])
+  destinationChain  Chain      @relation("DestinationChain", fields: [destinationChainId], references: [id])
+  sourceToken       Token      @relation("SourceToken", fields: [sourceTokenId], references: [id])
+  destinationToken  Token      @relation("DestinationToken", fields: [destinationTokenId], references: [id])
+  transactions      Transaction[]
+
+  @@index([userWallet], map: "idx_bridge_ops_user")
+  @@index([status], map: "idx_bridge_ops_status")
+  @@index([sourceTxHash], map: "idx_bridge_ops_source_tx")
+  @@index([destinationTxHash], map: "idx_bridge_ops_dest_tx")
+  @@index([createdAt(sort: Desc)], map: "idx_bridge_ops_created")
+  @@index([teleporterMessageId], map: "idx_bridge_ops_teleporter")
+  @@index([icttSetupId], map: "idx_bridge_ops_setup")
+  @@map("bridge_operations")
+}
+
+model Transaction {
+  id                    String    @id @default(uuid()) @db.Uuid
+  
+  chainId               String    @map("chain_id") @db.Uuid
+  txHash                String    @unique @map("tx_hash") @db.VarChar(66)
+  
+  // Transaction Details
+  fromAddress           String    @map("from_address") @db.VarChar(42)
+  toAddress             String?   @map("to_address") @db.VarChar(42)
+  value                 Decimal   @default(0) @db.Decimal(78, 18)
+  
+  // Gas
+  gasLimit              BigInt?   @map("gas_limit")
+  gasUsed               BigInt?   @map("gas_used")
+  gasPrice              Decimal?  @map("gas_price") @db.Decimal(78, 0)
+  
+  // Block Info
+  blockNumber           BigInt?   @map("block_number")
+  blockTimestamp        DateTime? @map("block_timestamp") @db.Timestamp(6)
+  
+  // Status
+  status                String?   @db.VarChar(20)
+  errorMessage          String?   @map("error_message") @db.Text
+  
+  // Relations
+  bridgeOperationId     String?   @map("bridge_operation_id") @db.Uuid
+  contractDeploymentId  String?   @map("contract_deployment_id") @db.Uuid
+  
+  // Metadata
+  inputData             String?   @map("input_data") @db.Text
+  logs                  Json?
+  
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt             DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  chain              Chain             @relation(fields: [chainId], references: [id])
+  bridgeOperation    BridgeOperation?  @relation(fields: [bridgeOperationId], references: [id])
+  contractDeployment DeployedContract? @relation(fields: [contractDeploymentId], references: [id])
+
+  @@index([txHash], map: "idx_transactions_hash")
+  @@index([chainId], map: "idx_transactions_chain")
+  @@index([fromAddress], map: "idx_transactions_from")
+  @@index([bridgeOperationId], map: "idx_transactions_bridge_op")
+  @@index([status], map: "idx_transactions_status")
+  @@map("transactions")
+}
+
+model RelayerStatus {
+  id               String   @id @default(uuid()) @db.Uuid
+  
+  relayerAddress   String   @unique @map("relayer_address") @db.VarChar(42)
+  relayerName      String?  @map("relayer_name") @db.VarChar(100)
+  
+  // Status
+  isActive         Boolean  @default(true) @map("is_active")
+  lastHeartbeat    DateTime? @map("last_heartbeat") @db.Timestamp(6)
+  
+  // Supported Chains
+  supportedChains  Json?    @map("supported_chains")
+  
+  // Performance
+  totalRelays      Int      @default(0) @map("total_relays")
+  successfulRelays Int      @default(0) @map("successful_relays")
+  failedRelays     Int      @default(0) @map("failed_relays")
+  avgRelayTime     Int?     @map("avg_relay_time")
+  
+  // Balance Monitoring
+  balanceAlerts    Json?    @map("balance_alerts")
+  
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  @@index([isActive], map: "idx_relayer_active")
+  @@index([relayerAddress], map: "idx_relayer_address")
+  @@map("relayer_status")
+}
