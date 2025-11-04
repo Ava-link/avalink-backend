@@ -1,0 +1,33 @@
+# VCS
+.git
+.gitignore
+
+# Dependencies
+node_modules
+pnpm-store
+
+# Build outputs
+dist
+
+# Env & secrets
+.env
+.env.*
+
+# OS/editor
+.DS_Store
+.vscode
+
+# Logs
+logs
+*.log
+
+# Tests/docs
+coverage
+tests
+docs
+
+# Package managers not in use inside image
+yarn.lock
+npm-debug.log*
+
+

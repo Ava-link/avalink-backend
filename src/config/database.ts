@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import { env } from './env';
+import { env } from './env.js';
 import { parse } from 'pg-connection-string';
 
 // Parse the connection string and force IPv4

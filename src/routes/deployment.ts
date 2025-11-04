@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Router as RouterType } from 'express';
 import {
   deployERC20TokenHomeController,
   deployERC20TokenRemoteController,
@@ -10,7 +10,7 @@ import {
   getIcttSetupsController,
 } from '../controllers/deployment.controller';
 
-const router = Router();
+const router: RouterType = Router();
 
 /**
  * Deployment Routes

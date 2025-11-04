@@ -1,5 +1,5 @@
 import { ethers, Wallet, JsonRpcProvider } from 'ethers';
-import { env } from './env';
+import { env } from './env.js';
 
 /**
  * Global Wallet Module

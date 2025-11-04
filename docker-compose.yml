@@ -1,0 +1,17 @@
+services:
+  avalink:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NODE_VERSION: "25.1.0"
+        NPM_VERSION: "9.2.0"
+        PNPM_VERSION: "10.19.0"
+    image: avalink-backend:local
+    env_file:
+      - .env
+    ports:
+      - "3002:3002"
+    restart: unless-stopped
+
+

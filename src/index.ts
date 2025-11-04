@@ -2,11 +2,11 @@ import dns from 'node:dns';
 dns.setDefaultResultOrder('ipv4first');
 import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
-import { env } from './config/env';
-import logger from './config/logger';
-import { rayIdMiddleware } from './middleware/rayId';
-import healthRouter from './routes/health';
-import deploymentRouter from './routes/deployment';
+import { env } from './config/env.js';
+import logger from './config/logger.js';
+import { rayIdMiddleware } from './middleware/rayId.js';
+import healthRouter from './routes/health.js';
+import deploymentRouter from './routes/deployment.js';
 
 const app: Application = express();
 const PORT = env.PORT;
