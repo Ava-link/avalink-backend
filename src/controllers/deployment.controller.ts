@@ -14,6 +14,7 @@ import {
 } from '../services/deployment';
 import { getWalletAddress, getWalletBalance } from '../config/wallet';
 import logger, { logFunctionEntry } from '../config/logger';
+import { getIcttSetups } from '../services/deployment.prisma.service';
 
 /**
  * Deployment Controller
@@ -308,3 +309,22 @@ export async function deployUnifiedBridgeController(req: Request, res: Response)
   }
 }
 
+export async function getIcttSetupsController(req: Request, res: Response) {
+  logFunctionEntry('getIcttSetupsController', req.rayId);
+  try {
+    const icttSetups = await getIcttSetups();
+    return res.json({
+      success: true,
+      icttSetups,
+      rayId: req.rayId,
+    });
+  }
+  catch(error) {
+    logger.error("Error in getIcttSetupsController", { rayId: req.rayId, functionName: 'getIcttSetupsController', error: error instanceof Error ? error.message : 'Unknown error' });
+    return res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      rayId: req.rayId,
+    });
+  }
+}

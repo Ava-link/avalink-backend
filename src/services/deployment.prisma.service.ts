@@ -118,6 +118,128 @@ export async function updateChainTeleporterAddresses(
 }
 
 /**
+ * Find or create a user by wallet address
+ */
+export async function findOrCreateUser(walletAddress: string): Promise<any> {
+  try {
+    const existing = await prisma.user.findUnique({ where: { walletAddress } });
+    if (existing) {
+      return existing;
+    }
+    const created = await prisma.user.create({
+      data: {
+        walletAddress,
+        isActive: true,
+      },
+    });
+    logger.info(`✅ New user created: ${walletAddress}`);
+    return created;
+  } catch (error) {
+    logger.error('Error in findOrCreateUser:', error);
+    throw error;
+  }
+}
+
+/**
+ * Find or create a token by chain and address
+ */
+export async function findOrCreateToken(
+  chainId: string,
+  tokenData: {
+    address: string;
+    symbol: string;
+    name: string;
+    decimals: number;
+    tokenType?: string;
+    logoUrl?: string;
+    description?: string;
+  }
+): Promise<any> {
+  try {
+    const existing = await prisma.token.findFirst({
+      where: { chainId, address: tokenData.address },
+    });
+    if (existing) {
+      return existing;
+    }
+    const created = await prisma.token.create({
+      data: {
+        chainId,
+        address: tokenData.address,
+        symbol: tokenData.symbol,
+        name: tokenData.name,
+        decimals: tokenData.decimals,
+        tokenType: tokenData.tokenType || 'erc20',
+        logoUrl: tokenData.logoUrl,
+        description: tokenData.description,
+        isBridgeable: true,
+      },
+    });
+    logger.info(`✅ New token created: ${created.symbol} on chain ${chainId}`);
+    return created;
+  } catch (error) {
+    logger.error('Error in findOrCreateToken:', error);
+    throw error;
+  }
+}
+
+/**
+ * Create an ICTT setup record
+ */
+export async function createIcttSetup(data: {
+  setupName?: string;
+  tokenHomeAddress: string;
+  tokenHomeChainId: string;
+  tokenHomeTokenId: string;
+  tokenHomeContractId?: string | null;
+  tokenRemoteAddress: string;
+  tokenRemoteChainId: string;
+  tokenRemoteTokenId: string;
+  tokenRemoteContractId?: string | null;
+  deployedBy?: string | null;
+  deploymentConfig?: any;
+}): Promise<any> {
+  try {
+    const created = await prisma.icttSetup.create({
+      data: {
+        setupName: data.setupName,
+        tokenHomeAddress: data.tokenHomeAddress,
+        tokenHomeChainId: data.tokenHomeChainId,
+        tokenHomeTokenId: data.tokenHomeTokenId,
+        tokenHomeContractId: data.tokenHomeContractId || null,
+        tokenRemoteAddress: data.tokenRemoteAddress,
+        tokenRemoteChainId: data.tokenRemoteChainId,
+        tokenRemoteTokenId: data.tokenRemoteTokenId,
+        tokenRemoteContractId: data.tokenRemoteContractId || null,
+        deployedBy: data.deployedBy || null,
+        deploymentConfig: data.deploymentConfig,
+        isActive: true,
+        setupStatus: 'active',
+      },
+    });
+    logger.info(`✅ ICTT setup created: ${created.id}`);
+    return created;
+  } catch (error) {
+    logger.error('Error creating ICTT setup:', error);
+    throw error;
+  }
+}
+
+export async function getIcttSetups (){
+  try{
+    const icttSetups = await prisma.icttSetup.findMany({
+      where: {
+        isActive: true,
+      },
+    });
+    return icttSetups;
+  } catch (error) {
+    logger.error('Error getting ICTT setups:', error);
+    throw error;
+  }
+}
+
+/*
  * Disconnect Prisma Client
  */
 export async function disconnectPrisma(): Promise<void> {

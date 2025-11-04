@@ -7,6 +7,7 @@ import {
   getWalletInfoController,
   getArtifactsController,
   deployUnifiedBridgeController,
+  getIcttSetupsController,
 } from '../controllers/deployment.controller';
 
 const router = Router();
@@ -37,6 +38,9 @@ router.get('/wallet-info', getWalletInfoController);
 
 // Get contract artifacts
 router.get('/artifacts/:contractName', getArtifactsController);
+
+// Get all ictt
+router.get("/ictt", getIcttSetupsController);
 
 export default router;
 

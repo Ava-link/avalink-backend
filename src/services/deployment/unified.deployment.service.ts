@@ -10,7 +10,7 @@ import { getWallet } from '../../config/wallet';
 import erc20TokenRemoteAbi from '../../abi/ERC20TokenRemote.json';
 import erc20TokenHomeAbi from '../../abi/ERC20TokenHome.json';
 import logger from '../../config/logger';
-import { findOrCreateChain, updateChainTeleporterAddresses } from '../deployment.prisma.service';
+import { findOrCreateChain, updateChainTeleporterAddresses, findOrCreateToken, createIcttSetup, findOrCreateUser } from '../deployment.prisma.service';
 
 /**
  * Unified Bridge Deployment Service
@@ -508,6 +508,76 @@ export class UnifiedBridgeDeploymentService {
     logger.info(`⚠️  IMPORTANT: If you used a placeholder for registeredRemoteAddress in TokenHome,`);
     logger.info(`   you'll need to register the TokenRemote address (${remoteTokenResult.contractAddress}) in TokenHome.`);
     logger.info('');
+
+    // ========================================
+    // STEP 10: Persist ICTT Setup in Database
+    // ========================================
+    try {
+      // Fetch token metadata for the HOME chain original token
+      const minimalErc20Abi = [
+        'function symbol() view returns (string)',
+        'function name() view returns (string)'
+      ];
+      const homeWallet = getWallet(params.homeChain.rpcUrl);
+      const homeTokenContract = new ethers.Contract(
+        params.homeChain.tokenAddress,
+        minimalErc20Abi,
+        homeWallet
+      );
+
+      let homeTokenSymbol = 'TOKEN';
+      let homeTokenName = 'Token';
+      try {
+        homeTokenSymbol = await homeTokenContract.symbol();
+        homeTokenName = await homeTokenContract.name();
+      } catch (_) {
+        // ignore metadata fetch errors; use defaults
+      }
+
+      // Ensure Token records exist
+      const homeTokenDb = await findOrCreateToken(homeChain.id, {
+        address: params.homeChain.tokenAddress,
+        symbol: homeTokenSymbol,
+        name: homeTokenName,
+        decimals: params.homeChain.tokenDecimals,
+        tokenType: 'erc20',
+      });
+
+      const remoteTokenDb = await findOrCreateToken(remoteChain.id, {
+        address: remoteTokenResult.contractAddress,
+        symbol: params.remoteChain.tokenSymbol,
+        name: params.remoteChain.tokenName,
+        decimals: params.remoteChain.tokenDecimals,
+        tokenType: 'erc20',
+      });
+
+      // Ensure User exists, to attribute deployment
+      let deployedByUserId: string | null = null;
+      try {
+        if (deployerAddress) {
+          const user = await findOrCreateUser(deployerAddress);
+          deployedByUserId = user?.id ?? null;
+        }
+      } catch (_) {
+        deployedByUserId = null;
+      }
+
+      await createIcttSetup({
+        setupName: `${homeTokenDb.symbol}-${remoteTokenDb.symbol} ICTT`,
+        tokenHomeAddress: homeTokenResult.contractAddress,
+        tokenHomeChainId: homeChain.id,
+        tokenHomeTokenId: homeTokenDb.id,
+        tokenRemoteAddress: remoteTokenResult.contractAddress,
+        tokenRemoteChainId: remoteChain.id,
+        tokenRemoteTokenId: remoteTokenDb.id,
+        deployedBy: deployedByUserId,
+        deploymentConfig: params,
+      });
+
+      logger.info('✅ ICTT setup persisted to database');
+    } catch (persistError) {
+      logger.error('Failed to persist ICTT setup to database:', persistError);
+    }
 
     return {
       success: true,
