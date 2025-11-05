@@ -339,7 +339,17 @@ export async function getIcttSetup(homeChainId: string) {
             explorerUrl: true,
             nativeTokenName: true,
             nativeTokenSymbol: true,
-            blockchainId: true,
+            blockchainId: true
+          },
+        },
+        tokenHomeToken: {
+          select: {
+            id: true,
+            name: true,
+            symbol: true,
+            decimals: true,
+            address: true,
+            logoUrl: true,
           },
         },
         tokenRemoteChain: {
@@ -354,6 +364,16 @@ export async function getIcttSetup(homeChainId: string) {
             nativeTokenName: true,
             nativeTokenSymbol: true,
             blockchainId: true,
+          },
+        },
+        tokenRemoteToken: {
+          select: {
+            id: true,
+            name: true,
+            symbol: true,
+            decimals: true,
+            address: true,
+            logoUrl: true,
           },
         },
       },
