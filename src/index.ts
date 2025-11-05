@@ -7,6 +7,7 @@ import logger from './config/logger';
 import { rayIdMiddleware } from './middleware/rayId';
 import healthRouter from './routes/health';
 import deploymentRouter from './routes/deployment';
+import availableRouter from './routes/available';
 
 const app: Application = express();
 const PORT = env.PORT;
@@ -22,6 +23,7 @@ app.use(rayIdMiddleware);
 // Routes
 app.use('/', healthRouter);
 app.use('/deploy', deploymentRouter);
+app.use('/available', availableRouter);
 
 // 404 handler
 app.use((req: Request, res: Response) => {
