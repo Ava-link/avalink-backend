@@ -10,6 +10,7 @@ import { getWallet } from '../../config/wallet';
 import erc20TokenRemoteAbi from '../../abi/ERC20TokenRemote.json';
 import erc20TokenHomeAbi from '../../abi/ERC20TokenHome.json';
 import logger from '../../config/logger';
+import { DeploymentLogger, formatDeploymentInfo } from '../../config/utils';
 import { findOrCreateChain, updateChainTeleporterAddresses, findOrCreateToken, createIcttSetup, findOrCreateUser } from '../deployment.prisma.service';
 
 /**
@@ -187,13 +188,13 @@ export class UnifiedBridgeDeploymentService {
     rayId?: string
   ): Promise<UnifiedDeploymentResult> {
   const timestamp = new Date().toISOString(); 
+  const deployLog = new DeploymentLogger(rayId);
   
-  logger.info('\n========================================',);
-  logger.info('🚀 UNIFIED BRIDGE DEPLOYMENT STARTED', { rayId, functionName: 'deployUnifiedBridge' });
-  logger.info('========================================\n',);
-  logger.info(`Home Chain: ${params.homeChain.rpcUrl}`,);
-  logger.info(`Remote Chain: ${params.remoteChain.rpcUrl}`,);
-  logger.info('',);
+  deployLog.header('UNIFIED BRIDGE DEPLOYMENT STARTED');
+  deployLog.info('Configuration', {
+    homeChain: params.homeChain.rpcUrl,
+    remoteChain: params.remoteChain.rpcUrl,
+  });
 
   try {
     let deployerAddress = '';
@@ -201,7 +202,7 @@ export class UnifiedBridgeDeploymentService {
     // ========================================
     // STEP 0: Ensure chains exist in database
     // ========================================
-    logger.info('📍 STEP 0/6: Checking and creating chain entries in database',);
+    deployLog.step(0, 9, 'Checking and creating chain entries in database');
     
     // Create or find home chain
     const homeChain = await findOrCreateChain(params.homeChain.blockchainId, {
@@ -245,19 +246,19 @@ export class UnifiedBridgeDeploymentService {
       isTestnet: true,
     });
 
-    logger.info(`✅ Home chain: ${homeChain.name} (DB ID: ${homeChain.id})`);
-    logger.info(`✅ Remote chain: ${remoteChain.name} (DB ID: ${remoteChain.id})`);
-    logger.info('');
+    deployLog.success('Chains verified', {
+      homeChain: `${homeChain.name} (DB ID: ${homeChain.id})`,
+      remoteChain: `${remoteChain.name} (DB ID: ${remoteChain.id})`,
+    });
 
     // ========================================
     // STEP 1: Deploy/Use TeleporterMessenger on HOME CHAIN
     // ========================================
-    logger.info('📍 STEP 1/6: Setting up TeleporterMessenger on Home Chain',);
+    deployLog.step(1, 9, 'Setting up TeleporterMessenger on Home Chain');
     let homeMessengerAddress: string;
     let homeMessengerResult: DeploymentResult | null = null;
     
     if (params.homeChain.teleporterMessenger.deploy) {
-      logger.info('Deploying new TeleporterMessenger on home chain...',);
       homeMessengerResult = await deployTeleporterMessenger({
         rpcUrl: params.homeChain.rpcUrl,
         constructorArgs: [],
@@ -270,22 +271,20 @@ export class UnifiedBridgeDeploymentService {
       
       homeMessengerAddress = homeMessengerResult.contractAddress;
       deployerAddress = homeMessengerResult.deployerAddress;
-      logger.info(`✅ Home chain TeleporterMessenger deployed at: ${homeMessengerAddress}`);
+      deployLog.success(`TeleporterMessenger deployed: ${homeMessengerAddress}`);
     } else {
       homeMessengerAddress = params.homeChain.teleporterMessenger.contractAddress!;
-      logger.info(`✅ Using existing TeleporterMessenger at: ${homeMessengerAddress}`);
+      deployLog.success(`Using existing TeleporterMessenger: ${homeMessengerAddress}`);
     }
-    logger.info('');
 
     // ========================================
     // STEP 2: Deploy/Use TeleporterRegistry on HOME CHAIN
     // ========================================
-    logger.info('📍 STEP 2/6: Setting up TeleporterRegistry on Home Chain');
+    deployLog.step(2, 9, 'Setting up TeleporterRegistry on Home Chain');
     let homeRegistryAddress: string;
     let homeRegistryResult: DeploymentResult | null = null;
     
     if (params.homeChain.teleporterRegistry.deploy) {
-      logger.info('Deploying new TeleporterRegistry on home chain...');
       homeRegistryResult = await deployTeleporterRegistry({
         rpcUrl: params.homeChain.rpcUrl,
         constructorArgs: [
@@ -305,22 +304,20 @@ export class UnifiedBridgeDeploymentService {
       
       homeRegistryAddress = homeRegistryResult.contractAddress;
       deployerAddress = homeRegistryResult.deployerAddress;
-      logger.info(`✅ Home chain TeleporterRegistry deployed at: ${homeRegistryAddress}`);
+      deployLog.success(`TeleporterRegistry deployed: ${homeRegistryAddress}`);
     } else {
       homeRegistryAddress = params.homeChain.teleporterRegistry.contractAddress!;
-      logger.info(`✅ Using existing TeleporterRegistry at: ${homeRegistryAddress}`);
+      deployLog.success(`Using existing TeleporterRegistry: ${homeRegistryAddress}`);
     }
-    logger.info('');
 
     // ========================================
     // STEP 3: Deploy/Use TeleporterMessenger on REMOTE CHAIN
     // ========================================
-    logger.info('📍 STEP 3/6: Setting up TeleporterMessenger on Remote Chain');
+    deployLog.step(3, 9, 'Setting up TeleporterMessenger on Remote Chain');
     let remoteMessengerAddress: string;
     let remoteMessengerResult: DeploymentResult | null = null;
     
     if (params.remoteChain.teleporterMessenger.deploy) {
-      logger.info('Deploying new TeleporterMessenger on remote chain...');
       remoteMessengerResult = await deployTeleporterMessenger({
         rpcUrl: params.remoteChain.rpcUrl,
         constructorArgs: [],
@@ -333,22 +330,20 @@ export class UnifiedBridgeDeploymentService {
       
       remoteMessengerAddress = remoteMessengerResult.contractAddress;
       deployerAddress = remoteMessengerResult.deployerAddress;
-      logger.info(`✅ Remote chain TeleporterMessenger deployed at: ${remoteMessengerAddress}`);
+      deployLog.success(`TeleporterMessenger deployed: ${remoteMessengerAddress}`);
     } else {
       remoteMessengerAddress = params.remoteChain.teleporterMessenger.contractAddress!;
-      logger.info(`✅ Using existing TeleporterMessenger at: ${remoteMessengerAddress}`);
+      deployLog.success(`Using existing TeleporterMessenger: ${remoteMessengerAddress}`);
     }
-    logger.info('');
 
     // ========================================
     // STEP 4: Deploy/Use TeleporterRegistry on REMOTE CHAIN
     // ========================================
-    logger.info('📍 STEP 4/6: Setting up TeleporterRegistry on Remote Chain');
+    deployLog.step(4, 9, 'Setting up TeleporterRegistry on Remote Chain');
     let remoteRegistryAddress: string;
     let remoteRegistryResult: DeploymentResult | null = null;
     
     if (params.remoteChain.teleporterRegistry.deploy) {
-      logger.info('Deploying new TeleporterRegistry on remote chain...');
       remoteRegistryResult = await deployTeleporterRegistry({
         rpcUrl: params.remoteChain.rpcUrl,
         constructorArgs: [
@@ -368,12 +363,11 @@ export class UnifiedBridgeDeploymentService {
       
       remoteRegistryAddress = remoteRegistryResult.contractAddress;
       deployerAddress = remoteRegistryResult.deployerAddress;
-      logger.info(`✅ Remote chain TeleporterRegistry deployed at: ${remoteRegistryAddress}`);
+      deployLog.success(`TeleporterRegistry deployed: ${remoteRegistryAddress}`);
     } else {
       remoteRegistryAddress = params.remoteChain.teleporterRegistry.contractAddress!;
-      logger.info(`✅ Using existing TeleporterRegistry at: ${remoteRegistryAddress}`);
+      deployLog.success(`Using existing TeleporterRegistry: ${remoteRegistryAddress}`);
     }
-    logger.info('');
 
     // Update database with deployed teleporter addresses
     if (params.homeChain.teleporterMessenger.deploy || params.homeChain.teleporterRegistry.deploy) {
@@ -395,12 +389,7 @@ export class UnifiedBridgeDeploymentService {
     // ========================================
     // STEP 5: Deploy ERC20TokenHome on HOME CHAIN
     // ========================================
-    logger.info('📍 STEP 5/6: Deploying ERC20TokenHome on Home Chain');
-    
-    // Note: We'll deploy TokenHome first with a placeholder for registeredRemoteAddress
-    // In production, you might want to deploy TokenRemote first and then TokenHome,
-    // or use zero address initially and update it later
-    const temporaryRemoteAddress = params.homeChain.registeredRemoteAddress || ethers.ZeroAddress;
+    deployLog.step(5, 9, 'Deploying ERC20TokenHome on Home Chain');
     
     const homeTokenResult = await deployERC20TokenHome({
       rpcUrl: params.homeChain.rpcUrl,
@@ -419,13 +408,17 @@ export class UnifiedBridgeDeploymentService {
     }
     
     deployerAddress = homeTokenResult.deployerAddress;
-    logger.info(`✅ ERC20TokenHome deployed at: ${homeTokenResult.contractAddress}`);
-    logger.info('');
+    deployLog.success('ERC20TokenHome deployed', formatDeploymentInfo(
+      'ERC20TokenHome',
+      homeTokenResult.contractAddress,
+      homeTokenResult.transactionHash,
+      homeTokenResult.gasUsed
+    ));
 
     // ========================================
     // STEP 6: Deploy ERC20TokenRemote on REMOTE CHAIN
     // ========================================
-    logger.info('📍 STEP 6/6: Deploying ERC20TokenRemote on Remote Chain');
+    deployLog.step(6, 9, 'Deploying ERC20TokenRemote on Remote Chain');
     
     const remoteTokenResult = await deployERC20TokenRemote({
       rpcUrl: params.remoteChain.rpcUrl,
@@ -450,8 +443,12 @@ export class UnifiedBridgeDeploymentService {
     }
     
     deployerAddress = remoteTokenResult.deployerAddress;
-    logger.info(`✅ ERC20TokenRemote deployed at: ${remoteTokenResult.contractAddress}`);
-    logger.info('');
+    deployLog.success('ERC20TokenRemote deployed', formatDeploymentInfo(
+      'ERC20TokenRemote',
+      remoteTokenResult.contractAddress,
+      remoteTokenResult.transactionHash,
+      remoteTokenResult.gasUsed
+    ));
   
     // ========================================
     // STEP 7: initiate a Relayer for the newly created ICM if not already configured.
@@ -460,7 +457,7 @@ export class UnifiedBridgeDeploymentService {
     // ========================================
     // STEP 8: Call RegisterWithHome on TokenRemote
     // ========================================
-    logger.info('📍 STEP 8/9: Calling RegisterWithHome on TokenRemote');
+    deployLog.step(8, 9, 'Calling RegisterWithHome on TokenRemote');
     const registerWithHomeResult = await UnifiedBridgeDeploymentService.registerTokenRemoteWithHome({
       rpcUrl: params.remoteChain.rpcUrl,
       tokenRemoteAddress: remoteTokenResult.contractAddress,
@@ -470,12 +467,12 @@ export class UnifiedBridgeDeploymentService {
     });
     
     if (!registerWithHomeResult.success) {
-      logger.error(`⚠️  Warning: Failed to call RegisterWithHome: ${registerWithHomeResult.error}`);
+      deployLog.warn(`Failed to call RegisterWithHome: ${registerWithHomeResult.error}`);
     } else {
-      logger.info(`✅ RegisterWithHome call successful`);
-      logger.info(`Transaction hash: ${registerWithHomeResult.transactionHash}`);
+      deployLog.success('RegisterWithHome call successful', {
+        transactionHash: registerWithHomeResult.transactionHash,
+      });
     }
-    logger.info('');
 
     // ========================================
     // STEP 9: Add colaterals for the contracts
@@ -484,34 +481,28 @@ export class UnifiedBridgeDeploymentService {
     // ========================================
     // DEPLOYMENT COMPLETE
     // ========================================
-    // TODO : Replace this logging on console to creating log files for each call with ray-id
-    logger.info('========================================');
-    logger.info('✅ UNIFIED BRIDGE DEPLOYMENT COMPLETE');
-    logger.info('========================================\n');
-
-    logger.info('📋 DEPLOYMENT SUMMARY:');
-    logger.info('');
-    logger.info('🏠 HOME CHAIN:');
-    logger.info(`   RPC: ${params.homeChain.rpcUrl}`);
-    logger.info(`   Blockchain ID: ${params.homeChain.blockchainId}`);
-    logger.info(`   TeleporterMessenger: ${homeMessengerAddress} (${params.homeChain.teleporterMessenger.deploy ? 'deployed' : 'existing'})`);
-    logger.info(`   TeleporterRegistry: ${homeRegistryAddress} (${params.homeChain.teleporterRegistry.deploy ? 'deployed' : 'existing'})`);
-    logger.info(`   ERC20TokenHome: ${homeTokenResult.contractAddress} (deployed)`);
-    logger.info('');
-    logger.info('🌐 REMOTE CHAIN:');
-    logger.info(`   RPC: ${params.remoteChain.rpcUrl}`);
-    logger.info(`   Blockchain ID: ${params.remoteChain.blockchainId}`);
-    logger.info(`   TeleporterMessenger: ${remoteMessengerAddress} (${params.remoteChain.teleporterMessenger.deploy ? 'deployed' : 'existing'})`);
-    logger.info(`   TeleporterRegistry: ${remoteRegistryAddress} (${params.remoteChain.teleporterRegistry.deploy ? 'deployed' : 'existing'})`);
-    logger.info(`   ERC20TokenRemote: ${remoteTokenResult.contractAddress} (deployed)`);
-    logger.info('');
-    logger.info(`⚠️  IMPORTANT: If you used a placeholder for registeredRemoteAddress in TokenHome,`);
-    logger.info(`   you'll need to register the TokenRemote address (${remoteTokenResult.contractAddress}) in TokenHome.`);
-    logger.info('');
+    deployLog.summary({
+      homeChain: {
+        rpc: params.homeChain.rpcUrl,
+        blockchainId: params.homeChain.blockchainId,
+        teleporterMessenger: `${homeMessengerAddress} (${params.homeChain.teleporterMessenger.deploy ? 'deployed' : 'existing'})`,
+        teleporterRegistry: `${homeRegistryAddress} (${params.homeChain.teleporterRegistry.deploy ? 'deployed' : 'existing'})`,
+        erc20TokenHome: homeTokenResult.contractAddress,
+      },
+      remoteChain: {
+        rpc: params.remoteChain.rpcUrl,
+        blockchainId: params.remoteChain.blockchainId,
+        teleporterMessenger: `${remoteMessengerAddress} (${params.remoteChain.teleporterMessenger.deploy ? 'deployed' : 'existing'})`,
+        teleporterRegistry: `${remoteRegistryAddress} (${params.remoteChain.teleporterRegistry.deploy ? 'deployed' : 'existing'})`,
+        erc20TokenRemote: remoteTokenResult.contractAddress,
+      },
+      deployerAddress,
+    });
 
     // ========================================
-    // STEP 10: Persist ICTT Setup in Database
+    // STEP 9: Persist ICTT Setup in Database
     // ========================================
+    deployLog.step(9, 9, 'Persisting ICTT setup to database');
     try {
       // Fetch token metadata for the HOME chain original token
       const minimalErc20Abi = [
@@ -574,10 +565,12 @@ export class UnifiedBridgeDeploymentService {
         deploymentConfig: params,
       });
 
-      logger.info('✅ ICTT setup persisted to database');
+      deployLog.success('ICTT setup persisted to database');
     } catch (persistError) {
-      logger.error('Failed to persist ICTT setup to database:', persistError);
+      deployLog.error('Failed to persist ICTT setup', persistError);
     }
+
+    deployLog.complete(true);
 
     return {
       success: true,
@@ -627,9 +620,8 @@ export class UnifiedBridgeDeploymentService {
       deployerAddress,
     };
   } catch (error) {
-    logger.error('\n❌ UNIFIED BRIDGE DEPLOYMENT FAILED');
-    logger.error('Error:', error instanceof Error ? error.message : error);
-    logger.info('');
+    deployLog.error('Deployment failed', error);
+    deployLog.complete(false);
     
     return {
       success: false,

@@ -41,14 +41,5 @@ router.get('/wallet-info', getWalletInfoController);
 // Get contract artifacts // not using
 router.get('/artifacts/:contractName', getArtifactsController);
 
-// Get all ictt 
-router.get("/ictt", getIcttSetupsController);
-
-// Get all chains
-router.get("/chains", getChainsController);
-
-// Get ictt setup by home chain id
-router.get("/ictt/:homeChainId", getIcttSetupController);
-
 export default router;
 

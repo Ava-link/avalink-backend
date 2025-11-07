@@ -88,6 +88,12 @@ const logger = winston.createLogger({
       filename: 'logs/combined.log',
       format: fileFormat,
     }),
+    
+    // File transport for deployment logs
+    new winston.transports.File({
+      filename: 'logs/deployments.log',
+      format: fileFormat,
+    }),
   ],
   // Handle exceptions and rejections
   exceptionHandlers: [

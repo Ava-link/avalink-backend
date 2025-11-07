@@ -45,3 +45,20 @@ curl --location --request PUT 'http://localhost:3002/deploy/bridge' \
   }
 
 
+
+
+# Cast Sends
+
+### registerWithHome
+cast send 0x7824eeb105DA9720c622D021C7729E0A4D4a7a93 \
+  "registerWithHome((address,uint256))" \
+  "(0x0000000000000000000000000000000000000000,0)" \
+  --rpc-url https://subnets.avax.network/dispatch/testnet/rpc \
+  --private-key <>
+
+### Check if it is registered or not
+cast call 0x9F94A6D6E3215C631af7A6577228e3857c0626E0 \
+"getRemoteTokenTransferrerSettings(bytes32,address)(bool,uint256,uint256,bool)" \
+0x9f49313c3f022e9fe5b6e7c1d98f0f53d86e53456c5e075e1881cac1c15968e4 \
+0x7824eeb105DA9720c622D021C7729E0A4D4a7a93 \
+--rpc-url https://api.avax-test.network/ext/bc/C/rpc
