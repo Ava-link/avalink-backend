@@ -339,7 +339,13 @@ export async function getIcttSetup(homeChainId: string) {
             explorerUrl: true,
             nativeTokenName: true,
             nativeTokenSymbol: true,
-            blockchainId: true
+            blockchainId: true,
+            rpcs: {
+              where: { isActive: true },
+              select: { rpcUrl: true },
+              orderBy: [{ isPrimary: 'desc' }, { priority: 'desc' }],
+              take: 1
+            }
           },
         },
         tokenHomeToken: {
@@ -364,6 +370,12 @@ export async function getIcttSetup(homeChainId: string) {
             nativeTokenName: true,
             nativeTokenSymbol: true,
             blockchainId: true,
+            rpcs: {
+              where: { isActive: true },
+              select: { rpcUrl: true },
+              orderBy: [{ isPrimary: 'desc' }, { priority: 'desc' }],
+              take: 1
+            }
           },
         },
         tokenRemoteToken: {
@@ -378,7 +390,22 @@ export async function getIcttSetup(homeChainId: string) {
         },
       },
     });
-    return icttSetup;
+    const formatted = icttSetup.map((setup: any) => {
+      const { rpcs: homeRpcs, ...homeChainRest } = setup.tokenHomeChain || {};
+      const { rpcs: remoteRpcs, ...remoteChainRest } = setup.tokenRemoteChain || {};
+      return {
+        ...setup,
+        tokenHomeChain: {
+          ...homeChainRest,
+          rpcUrl: homeRpcs?.[0]?.rpcUrl || null,
+        },
+        tokenRemoteChain: {
+          ...remoteChainRest,
+          rpcUrl: remoteRpcs?.[0]?.rpcUrl || null,
+        },
+      };
+    });
+    return formatted;
   }
   catch(error) {
     logger.error('Error getting ICTT setup:', error);
