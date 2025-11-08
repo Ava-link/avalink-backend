@@ -322,12 +322,19 @@ export async function getChains() {
 export async function getIcttSetup(homeChainId: string) {
   try {
     const icttSetup = await prisma.icttSetup.findMany({
-      where: { tokenHomeChainId: homeChainId, isActive: true },
+      where: { 
+        OR: [
+          { tokenHomeChainId: homeChainId, isActive: true },
+          { tokenRemoteChainId: homeChainId, isActive: true }
+        ]
+      },
       select: {
         id: true,
         setupName: true,
         tokenHomeAddress: true,
         tokenRemoteAddress: true,
+        tokenHomeChainId: true,
+        tokenRemoteChainId: true,
         tokenHomeChain: {
           select: {
             name: true,
@@ -390,9 +397,31 @@ export async function getIcttSetup(homeChainId: string) {
         },
       },
     });
-    const formatted = icttSetup.map((setup: any) => {
+
+    // Deduplicate based on unique setup pairs
+    const seenPairs = new Set<string>();
+    const deduplicatedSetup = icttSetup.filter((setup: any) => {
+      const homeId = setup.tokenHomeChain?.blockchainId;
+      const remoteId = setup.tokenRemoteChain?.blockchainId;
+      
+      // Create a normalized key (smaller id first to catch bidirectional pairs)
+      const pairKey = [homeId, remoteId].sort().join('-');
+      
+      if (seenPairs.has(pairKey)) {
+        return false;
+      }
+      
+      seenPairs.add(pairKey);
+      return true;
+    });
+
+    const formatted = deduplicatedSetup.map((setup: any) => {
       const { rpcs: homeRpcs, ...homeChainRest } = setup.tokenHomeChain || {};
       const { rpcs: remoteRpcs, ...remoteChainRest } = setup.tokenRemoteChain || {};
+      
+      // Determine if we matched on home or remote chain
+      const isHomeChainMatch = setup.tokenHomeChainId === homeChainId;
+      
       return {
         ...setup,
         tokenHomeChain: {
@@ -403,6 +432,12 @@ export async function getIcttSetup(homeChainId: string) {
           ...remoteChainRest,
           rpcUrl: remoteRpcs?.[0]?.rpcUrl || null,
         },
+        sendToken: isHomeChainMatch 
+          ? setup.tokenHomeToken 
+          : setup.tokenRemoteToken,
+        receiveToken: isHomeChainMatch 
+          ? setup.tokenRemoteToken 
+          : setup.tokenHomeToken,
       };
     });
     return formatted;
