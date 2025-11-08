@@ -422,8 +422,11 @@ export async function getIcttSetup(homeChainId: string) {
       // Determine if we matched on home or remote chain
       const isHomeChainMatch = setup.tokenHomeChainId === homeChainId;
       
+      // Destructure to exclude tokenHomeToken and tokenRemoteToken
+      const { tokenHomeToken, tokenRemoteToken, ...setupRest } = setup;
+      
       return {
-        ...setup,
+        ...setupRest,
         tokenHomeChain: {
           ...homeChainRest,
           rpcUrl: homeRpcs?.[0]?.rpcUrl || null,
@@ -433,11 +436,11 @@ export async function getIcttSetup(homeChainId: string) {
           rpcUrl: remoteRpcs?.[0]?.rpcUrl || null,
         },
         sendToken: isHomeChainMatch 
-          ? setup.tokenHomeToken 
-          : setup.tokenRemoteToken,
+          ? tokenHomeToken 
+          : tokenRemoteToken,
         receiveToken: isHomeChainMatch 
-          ? setup.tokenRemoteToken 
-          : setup.tokenHomeToken,
+          ? tokenRemoteToken 
+          : tokenHomeToken,
       };
     });
     return formatted;
