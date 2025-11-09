@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 import { logEndpoint } from '../config/logger';
 
 /**
@@ -11,7 +11,7 @@ import { logEndpoint } from '../config/logger';
 
 export const rayIdMiddleware = (req: Request, res: Response, next: NextFunction) => {
   // Generate unique Ray-ID
-  const rayId = uuidv4();
+  const rayId = randomUUID();
   
   // Attach Ray-ID to request
   req.rayId = rayId;

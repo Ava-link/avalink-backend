@@ -9,6 +9,19 @@ import healthRouter from './routes/health';
 import deploymentRouter from './routes/deployment';
 import availableRouter from './routes/available';
 
+// Add global error handlers at the very top
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('🚨 Unhandled Rejection at:', promise);
+  console.error('Reason:', reason);
+  logger.error('Unhandled rejection', { reason, promise });
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('🚨 Uncaught Exception:', error);
+  logger.error('Uncaught exception', { error: error.message, stack: error.stack });
+  process.exit(1);
+});
+
 const app: Application = express();
 const PORT = env.PORT;
 
@@ -41,6 +54,7 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
     error: err.message,
     stack: err.stack 
   });
+  
   res.status(500).json({
     status: 'error',
     message: env.NODE_ENV === 'production' 
@@ -51,17 +65,26 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 });
 
 // Start server
-console.log('About to start server on port ' + PORT);
+try {
+  const server = app.listen(PORT, () => {
+    logger.info(`Server started on port ${PORT} in ${env.NODE_ENV} environment.`);
+    logger.info(`http://localhost:${PORT}`);
+  });
 
-const server = app.listen(PORT, () => {
-  logger.info(`Server started on port ${PORT} in ${env.NODE_ENV} environment. \n 
-    http://localhost:${PORT}`);
-});
+  server.on('error', (err: any) => {
+    logger.error('Server error', { error: err.message, code: err.code });
+    if (err.code === 'EADDRINUSE') {
+      logger.error(`Port ${PORT} is already in use!`);
+      logger.error('Try: lsof -ti:${PORT} | xargs kill -9');
+    }
+    process.exit(1);
+  });
 
-server.on('error', (err) => {
-  console.error('Server error:', err);
+  server.on('listening', () => {
+  });
+} catch (error) {
+  logger.error('Failed to start server', { error });
   process.exit(1);
-});
+}
 
 export default app;
-
