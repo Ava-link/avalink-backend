@@ -399,20 +399,14 @@ export async function getIcttSetup(homeChainId: string) {
       },
     });
 
-    // Deduplicate based on unique setup pairs
-    const seenPairs = new Set<string>();
+    // Deduplicate based on unique setup IDs (each setup should appear only once)
+    const seenSetupIds = new Set<string>();
     const deduplicatedSetup = icttSetup.filter((setup: any) => {
-      const homeId = setup.tokenHomeChain?.blockchainId;
-      const remoteId = setup.tokenRemoteChain?.blockchainId;
-      
-      // Create a normalized key (smaller id first to catch bidirectional pairs)
-      const pairKey = [homeId, remoteId].sort().join('-');
-      
-      if (seenPairs.has(pairKey)) {
+      if (seenSetupIds.has(setup.id)) {
         return false;
       }
       
-      seenPairs.add(pairKey);
+      seenSetupIds.add(setup.id);
       return true;
     });
 
