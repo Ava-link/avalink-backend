@@ -1,7 +1,7 @@
 import dns from 'node:dns';
 dns.setDefaultResultOrder('ipv4first');
 import express, { Application, Request, Response, NextFunction } from 'express';
-import cors from 'cors';
+// import cors from 'cors';
 import { env } from './config/env';
 import logger from './config/logger';
 import { rayIdMiddleware } from './middleware/rayId';
@@ -26,7 +26,7 @@ const app: Application = express();
 const PORT = env.PORT;
 
 // Middleware
-app.use(cors());
+// app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
