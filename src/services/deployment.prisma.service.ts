@@ -1,4 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import pkg from "@prisma/client";
+const { PrismaClient } = pkg;
 import logger from '../config/logger';
 import { getChainMetadataFromAvaCloud, getChainIdFromRpc } from '../config/utils'
 

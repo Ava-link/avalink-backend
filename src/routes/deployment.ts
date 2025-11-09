@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import express, { Router } from 'express';
 import {
   deployERC20TokenHomeController,
   deployERC20TokenRemoteController,
@@ -12,13 +12,7 @@ import {
   getIcttSetupController,
 } from '../controllers/deployment.controller';
 
-const router = Router();
-
-/**
- * Deployment Routes
- * 
- * All routes for deploying contracts and managing deployments
- */
+const router: express.Router = Router();
 
 // Deploy unified cross-chain bridge (complete setup)
 router.put('/bridge', deployUnifiedBridgeController);
@@ -40,15 +34,6 @@ router.get('/wallet-info', getWalletInfoController);
 
 // Get contract artifacts // not using
 router.get('/artifacts/:contractName', getArtifactsController);
-
-// Get all ictt 
-router.get("/ictt", getIcttSetupsController);
-
-// Get all chains
-router.get("/chains", getChainsController);
-
-// Get ictt setup by home chain id
-router.get("/ictt/:homeChainId", getIcttSetupController);
 
 export default router;
 

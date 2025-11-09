@@ -1,11 +1,11 @@
-import { Router } from 'express';
+import express, { Router } from 'express';
 import {
   getIcttSetupsController,
   getChainsController,
   getIcttSetupController,
 } from '../controllers/deployment.controller';
 
-const router = Router();
+const router: express.Router = Router();
 
 // Get all ictt 
 router.get("/ictt", getIcttSetupsController);
