@@ -1,7 +1,7 @@
 import dns from 'node:dns';
 dns.setDefaultResultOrder('ipv4first');
 import express, { Application, Request, Response, NextFunction } from 'express';
-import cors, { CorsOptions } from 'cors';
+import cors from 'cors';
 import { env } from './config/env';
 import logger from './config/logger';
 import { rayIdMiddleware } from './middleware/rayId';
@@ -26,19 +26,7 @@ const app: Application = express();
 const PORT = env.PORT;
 
 // Middleware
-const allowedOrigins = ['https://avalink.org', 'http://localhost:3000'];
-
-const corsOptions: CorsOptions = {
-  origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-      return;
-    }
-    callback(new Error('Not allowed by CORS'));
-  }
-};
-
-app.use(cors(corsOptions));
+app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
