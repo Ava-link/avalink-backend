@@ -346,8 +346,6 @@ export async function getDeployedChains() {
         explorerUrl: true,
         logoUrl: true,
         blockchainId: true,
-        teleporterAddress: true,
-        teleporterManagerAddress: true,
         teleporterRegistryAddress: true,
         isActive: true,
 
