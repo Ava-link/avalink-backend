@@ -7,15 +7,16 @@ import {
   getWalletInfoController,
   getArtifactsController,
   deployUnifiedBridgeController,
-  getIcttSetupsController,
-  getChainsController,
-  getIcttSetupController,
+  getDeployedChainsController,
 } from '../controllers/deployment.controller';
 
 const router: express.Router = Router();
 
 // Deploy unified cross-chain bridge (complete setup)
 router.put('/bridge', deployUnifiedBridgeController);
+
+// Get Chains
+router.get('/chains', getDeployedChainsController);
 
 // Deploy ERC20TokenHome contract // not using
 router.put('/erc20-token-home', deployERC20TokenHomeController);

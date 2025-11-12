@@ -311,14 +311,75 @@ export async function getChains() {
 
         // ICTT Config
         hasIcmEnabled: true,
+        // RPCs (first active / primary)
+        rpcs: {
+          where: { isActive: true },
+          select: { rpcUrl: true },
+          orderBy: [{ isPrimary: 'desc' }, { priority: 'desc' }],
+          take: 1,
+        },
       },
     });
 
-    return chains;
+    // Flatten to expose rpcUrl at top-level
+    return chains.map((chain: any) => {
+      const { rpcs, ...rest } = chain;
+      return {
+        ...rest,
+        rpcUrl: rpcs?.[0]?.rpcUrl || null,
+      };
+    });
   } catch (error) {
     logger.error('Error getting chains:', error);
   }
 }
+
+export async function getDeployedChains() {
+  try {
+    const chains = await prisma.chain.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        name: true,
+        chainId: true,
+        isTestnet: true,
+        explorerUrl: true,
+        logoUrl: true,
+        blockchainId: true,
+        teleporterAddress: true,
+        teleporterManagerAddress: true,
+        teleporterRegistryAddress: true,
+        isActive: true,
+
+        // Native Token Info
+        nativeTokenName: true,
+        nativeTokenSymbol: true,
+
+        // ICTT Config
+        hasIcmEnabled: true,
+        // RPCs (first active / primary)
+        rpcs: {
+          where: { isActive: true },
+          select: { rpcUrl: true },
+          orderBy: [{ isPrimary: 'desc' }, { priority: 'desc' }],
+          take: 1,
+        },
+      },
+    });
+
+    // Flatten to expose rpcUrl at top-level
+    return chains.map((chain: any) => {
+      const { rpcs, ...rest } = chain;
+      return {
+        ...rest,
+        rpcUrl: rpcs?.[0]?.rpcUrl || null,
+      };
+    });
+  } catch (error) {
+    logger.error('Error getting chains:', error);
+  }
+}
+
 
 export async function getIcttSetup(homeChainId: string) {
   try {

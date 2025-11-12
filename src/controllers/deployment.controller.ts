@@ -14,7 +14,7 @@ import {
 } from '../services/deployment';
 import { getWalletAddress, getWalletBalance } from '../config/wallet';
 import logger, { logFunctionEntry } from '../config/logger';
-import { getChains, getIcttSetup, getIcttSetups } from '../services/deployment.prisma.service';
+import { getChains, getDeployedChains, getIcttSetup, getIcttSetups } from '../services/deployment.prisma.service';
 
 /**
  * Deployment Controller
@@ -361,6 +361,25 @@ export async function getIcttSetupController(req: Request, res: Response) {
     });
   } catch (error) {
     logger.error("Error in getIcttSetupController", { rayId: req.rayId, functionName: 'getIcttSetupController', error: error instanceof Error ? error.message : 'Unknown error' });
+    return res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      rayId: req.rayId,
+    });
+  }
+}
+
+export async function getDeployedChainsController(req: Request, res: Response) {
+  logFunctionEntry('getChainByIdController', req.rayId);
+  try {
+    const chain = await getDeployedChains();
+    return res.json({
+      success: true,
+      chain,
+      rayId: req.rayId,
+    });
+  } catch (error) {
+    logger.error("Error in getChainByIdController", { rayId: req.rayId, functionName: 'getChainByIdController', error: error instanceof Error ? error.message : 'Unknown error' });
     return res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
