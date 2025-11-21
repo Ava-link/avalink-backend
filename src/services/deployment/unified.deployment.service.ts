@@ -9,8 +9,10 @@ import { DeploymentResult } from './base.deployment.service';
 import { getWallet } from '../../config/wallet';
 import erc20TokenRemoteAbi from '../../abi/ERC20TokenRemote.json';
 import erc20TokenHomeAbi from '../../abi/ERC20TokenHome.json';
+import teleporterMessengerAbi from '../../abi/TeleporterMessenger.json';
+import teleporterRegistryAbi from '../../abi/TeleporterRegistry.json';
 import logger from '../../config/logger';
-import { DeploymentLogger, formatDeploymentInfo } from '../../config/utils';
+import { DeploymentLogger, formatDeploymentInfo, estimateDeploymentGasCost, checkSufficientBalance } from '../../config/utils';
 import { findOrCreateChain, updateChainTeleporterAddresses, findOrCreateToken, createIcttSetup, findOrCreateUser } from '../deployment.prisma.service';
 
 /**
@@ -197,11 +199,215 @@ export class UnifiedBridgeDeploymentService {
   });
 
   try {
-    let deployerAddress = '';
+    // Get deployer address early for balance checks
+    const homeWallet = getWallet(params.homeChain.rpcUrl);
+    const remoteWallet = getWallet(params.remoteChain.rpcUrl);
+    let deployerAddress = homeWallet.address;
+
+    // ========================================
+    // PRE-FLIGHT: Estimate gas costs and check balances
+    // ========================================
+    deployLog.header('PRE-FLIGHT GAS ESTIMATION AND BALANCE CHECK');
+    
+    let totalHomeChainGas = 0n;
+    let totalRemoteChainGas = 0n;
+
+    // Estimate gas for HOME CHAIN deployments
+    deployLog.section('HOME CHAIN - Gas Estimation');
+    
+    if (params.homeChain.teleporterMessenger.deploy) {
+      deployLog.info('Estimating gas for TeleporterMessenger on Home Chain...');
+      const messengerEstimate = await estimateDeploymentGasCost(
+        teleporterMessengerAbi.abi,
+        teleporterMessengerAbi.bytecode.object,
+        [],
+        params.homeChain.rpcUrl,
+        params.homeChain.gasLimit || 8000000
+      );
+      deployLog.info('TeleporterMessenger estimate:', {
+        gas: messengerEstimate.estimatedGas.toString(),
+        cost: messengerEstimate.estimatedCostFormatted + ' native tokens'
+      });
+      totalHomeChainGas += messengerEstimate.estimatedCost;
+    }
+
+    if (params.homeChain.teleporterRegistry.deploy) {
+      deployLog.info('Estimating gas for TeleporterRegistry on Home Chain...');
+      // We need to get messenger address first for registry estimation
+      const messengerAddress = params.homeChain.teleporterMessenger.contractAddress || 
+                              ethers.ZeroAddress; // Placeholder for estimation
+      const registryEstimate = await estimateDeploymentGasCost(
+        teleporterRegistryAbi.abi,
+        teleporterRegistryAbi.bytecode.object,
+        [[{ version: 1, protocolAddress: messengerAddress }]],
+        params.homeChain.rpcUrl,
+        params.homeChain.gasLimit || 3000000
+      );
+      deployLog.info('TeleporterRegistry estimate:', {
+        gas: registryEstimate.estimatedGas.toString(),
+        cost: registryEstimate.estimatedCostFormatted + ' native tokens'
+      });
+      totalHomeChainGas += registryEstimate.estimatedCost;
+    }
+
+    // Always deploy ERC20TokenHome
+    deployLog.info('Estimating gas for ERC20TokenHome on Home Chain...');
+    const homeTokenEstimate = await estimateDeploymentGasCost(
+      erc20TokenHomeAbi.abi,
+      erc20TokenHomeAbi.bytecode.object,
+      [
+        params.homeChain.teleporterRegistry.contractAddress || ethers.ZeroAddress,
+        params.homeChain.teleporterManagerAddress,
+        1,
+        params.homeChain.tokenAddress,
+        params.homeChain.tokenDecimals,
+      ],
+      params.homeChain.rpcUrl,
+      params.homeChain.gasLimit || 5000000
+    );
+    deployLog.info('ERC20TokenHome estimate:', {
+      gas: homeTokenEstimate.estimatedGas.toString(),
+      cost: homeTokenEstimate.estimatedCostFormatted + ' native tokens'
+    });
+    totalHomeChainGas += homeTokenEstimate.estimatedCost;
+
+    // Estimate gas for REMOTE CHAIN deployments
+    deployLog.section('REMOTE CHAIN - Gas Estimation');
+    
+    if (params.remoteChain.teleporterMessenger.deploy) {
+      deployLog.info('Estimating gas for TeleporterMessenger on Remote Chain...');
+      const messengerEstimate = await estimateDeploymentGasCost(
+        teleporterMessengerAbi.abi,
+        teleporterMessengerAbi.bytecode.object,
+        [],
+        params.remoteChain.rpcUrl,
+        params.remoteChain.gasLimit || 8000000
+      );
+      deployLog.info('TeleporterMessenger estimate:', {
+        gas: messengerEstimate.estimatedGas.toString(),
+        cost: messengerEstimate.estimatedCostFormatted + ' native tokens'
+      });
+      totalRemoteChainGas += messengerEstimate.estimatedCost;
+    }
+
+    if (params.remoteChain.teleporterRegistry.deploy) {
+      deployLog.info('Estimating gas for TeleporterRegistry on Remote Chain...');
+      const messengerAddress = params.remoteChain.teleporterMessenger.contractAddress || 
+                              ethers.ZeroAddress;
+      const registryEstimate = await estimateDeploymentGasCost(
+        teleporterRegistryAbi.abi,
+        teleporterRegistryAbi.bytecode.object,
+        [[{ version: 1, protocolAddress: messengerAddress }]],
+        params.remoteChain.rpcUrl,
+        params.remoteChain.gasLimit || 3000000
+      );
+      deployLog.info('TeleporterRegistry estimate:', {
+        gas: registryEstimate.estimatedGas.toString(),
+        cost: registryEstimate.estimatedCostFormatted + ' native tokens'
+      });
+      totalRemoteChainGas += registryEstimate.estimatedCost;
+    }
+
+    // Always deploy ERC20TokenRemote
+    deployLog.info('Estimating gas for ERC20TokenRemote on Remote Chain...');
+    const remoteTokenEstimate = await estimateDeploymentGasCost(
+      erc20TokenRemoteAbi.abi,
+      erc20TokenRemoteAbi.bytecode.object,
+      [
+        {
+          teleporterRegistryAddress: params.remoteChain.teleporterRegistry.contractAddress || ethers.ZeroAddress,
+          teleporterManager: params.remoteChain.teleporterManagerAddress,
+          minTeleporterVersion: 1,
+          tokenHomeBlockchainID: params.homeChain.blockchainId,
+          tokenHomeAddress: ethers.ZeroAddress, // Placeholder
+          tokenHomeDecimals: params.homeChain.tokenDecimals,
+        },
+        params.remoteChain.tokenName,
+        params.remoteChain.tokenSymbol,
+        params.remoteChain.tokenDecimals,
+      ],
+      params.remoteChain.rpcUrl,
+      params.remoteChain.gasLimit || 5000000
+    );
+    deployLog.info('ERC20TokenRemote estimate:', {
+      gas: remoteTokenEstimate.estimatedGas.toString(),
+      cost: remoteTokenEstimate.estimatedCostFormatted + ' native tokens'
+    });
+    totalRemoteChainGas += remoteTokenEstimate.estimatedCost;
+
+    // Add gas for registerWithHome call on remote chain (approximately 500k gas)
+    const registerWithHomeGas = 500000n;
+    const feeData = await remoteWallet.provider!.getFeeData();
+    const remoteGasPrice = feeData.gasPrice || ethers.parseUnits('25', 'gwei');
+    const registerWithHomeCost = registerWithHomeGas * remoteGasPrice;
+    totalRemoteChainGas += registerWithHomeCost;
+    deployLog.info('RegisterWithHome call estimate:', {
+      gas: registerWithHomeGas.toString(),
+      cost: ethers.formatEther(registerWithHomeCost) + ' native tokens'
+    });
+
+    // Check balances on both chains
+    deployLog.section('BALANCE VERIFICATION');
+    
+    deployLog.info('Checking Home Chain balance...');
+    const homeBalanceCheck = await checkSufficientBalance(
+      deployerAddress,
+      params.homeChain.rpcUrl,
+      totalHomeChainGas
+    );
+    
+    deployLog.info('Home Chain Balance:', {
+      currentBalance: homeBalanceCheck.currentBalanceFormatted + ' native tokens',
+      requiredAmount: homeBalanceCheck.requiredAmountFormatted + ' native tokens',
+      hasSufficientBalance: homeBalanceCheck.hasSufficientBalance,
+    });
+
+    if (!homeBalanceCheck.hasSufficientBalance) {
+      const errorMessage = `❌ INSUFFICIENT BALANCE ON HOME CHAIN\n\n` +
+        `You need to pay for gas fees to deploy the required contracts.\n\n` +
+        `Deployer Address: ${deployerAddress}\n` +
+        `Current Balance: ${homeBalanceCheck.currentBalanceFormatted} native tokens\n` +
+        `Required Amount: ${homeBalanceCheck.requiredAmountFormatted} native tokens (${homeBalanceCheck.nativeTokenDecimals} decimals)\n` +
+        `Shortfall: ${homeBalanceCheck.shortfallFormatted} native tokens\n\n` +
+        `Please fund the deployer wallet with at least ${homeBalanceCheck.requiredAmountFormatted} native tokens on the Home Chain (RPC: ${params.homeChain.rpcUrl}).`;
+      
+      throw new Error(errorMessage);
+    }
+
+    deployLog.info('Checking Remote Chain balance...');
+    const remoteBalanceCheck = await checkSufficientBalance(
+      deployerAddress,
+      params.remoteChain.rpcUrl,
+      totalRemoteChainGas
+    );
+    
+    deployLog.info('Remote Chain Balance:', {
+      currentBalance: remoteBalanceCheck.currentBalanceFormatted + ' native tokens',
+      requiredAmount: remoteBalanceCheck.requiredAmountFormatted + ' native tokens',
+      hasSufficientBalance: remoteBalanceCheck.hasSufficientBalance,
+    });
+
+    if (!remoteBalanceCheck.hasSufficientBalance) {
+      const errorMessage = `❌ INSUFFICIENT BALANCE ON REMOTE CHAIN\n\n` +
+        `You need to pay for gas fees to deploy the required contracts.\n\n` +
+        `Deployer Address: ${deployerAddress}\n` +
+        `Current Balance: ${remoteBalanceCheck.currentBalanceFormatted} native tokens\n` +
+        `Required Amount: ${remoteBalanceCheck.requiredAmountFormatted} native tokens (${remoteBalanceCheck.nativeTokenDecimals} decimals)\n` +
+        `Shortfall: ${remoteBalanceCheck.shortfallFormatted} native tokens\n\n` +
+        `Please fund the deployer wallet with at least ${remoteBalanceCheck.requiredAmountFormatted} native tokens on the Remote Chain (RPC: ${params.remoteChain.rpcUrl}).`;
+      
+      throw new Error(errorMessage);
+    }
+
+    deployLog.success('✅ BALANCE CHECK PASSED', {
+      homeChain: `${homeBalanceCheck.currentBalanceFormatted} native tokens (required: ${homeBalanceCheck.requiredAmountFormatted})`,
+      remoteChain: `${remoteBalanceCheck.currentBalanceFormatted} native tokens (required: ${remoteBalanceCheck.requiredAmountFormatted})`,
+    });
 
     // ========================================
     // STEP 0: Ensure chains exist in database
     // ========================================
+    deployLog.header('DEPLOYMENT STEPS');
     deployLog.step(0, 9, 'Checking and creating chain entries in database');
     
     // Create or find home chain

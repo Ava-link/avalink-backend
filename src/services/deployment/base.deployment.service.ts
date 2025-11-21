@@ -1,6 +1,8 @@
 import { ethers, ContractFactory, BaseContract } from 'ethers';
 import { getWallet } from '../../config/wallet';
 import { env } from '../../config/env';
+import { estimateDeploymentGasCost, checkSufficientBalance } from '../../config/utils';
+import logger from '../../config/logger';
 
 /**
  * Base Deployment Service
@@ -52,16 +54,48 @@ export class BaseDeploymentService {
       console.log(`Deploying contract from address: ${deployerAddress}`);
       console.log(`Chain RPC: ${params.rpcUrl}`);
 
-      // Check wallet balance
-      if (!wallet.provider) {
-        throw new Error('Provider not found for wallet');
-      }
-      const balance = await wallet.provider.getBalance(wallet.address);
-      console.log(`Deployer balance: ${ethers.formatEther(balance)} native tokens`);
+      // Estimate gas cost for deployment
+      logger.info('Estimating gas cost for deployment...');
+      const gasEstimate = await estimateDeploymentGasCost(
+        abi,
+        bytecode,
+        params.constructorArgs || [],
+        params.rpcUrl,
+        params.gasLimit
+      );
 
-      if (balance === 0n) {
-        throw new Error('Insufficient balance for deployment. Please fund the deployer wallet.');
+      logger.info('Gas estimation:', {
+        estimatedGas: gasEstimate.estimatedGas.toString(),
+        gasPrice: ethers.formatUnits(gasEstimate.gasPrice, 'gwei') + ' gwei',
+        estimatedCost: gasEstimate.estimatedCostFormatted + ' native tokens',
+      });
+
+      // Check if wallet has sufficient balance
+      const balanceCheck = await checkSufficientBalance(
+        deployerAddress,
+        params.rpcUrl,
+        gasEstimate.estimatedCost
+      );
+
+      logger.info('Balance check:', {
+        currentBalance: balanceCheck.currentBalanceFormatted + ' native tokens',
+        requiredAmount: balanceCheck.requiredAmountFormatted + ' native tokens',
+        hasSufficientBalance: balanceCheck.hasSufficientBalance,
+      });
+
+      if (!balanceCheck.hasSufficientBalance) {
+        const errorMessage = `Insufficient balance for deployment. You need to pay for gas fees.\n` +
+          `Current balance: ${balanceCheck.currentBalanceFormatted} native tokens\n` +
+          `Required amount: ${balanceCheck.requiredAmountFormatted} native tokens\n` +
+          `Shortfall: ${balanceCheck.shortfallFormatted} native tokens\n` +
+          `Please fund the deployer wallet (${deployerAddress}) with at least ${balanceCheck.requiredAmountFormatted} native tokens.`;
+        
+        throw new Error(errorMessage);
       }
+
+      console.log(`✅ Sufficient balance confirmed`);
+      console.log(`Deployer balance: ${balanceCheck.currentBalanceFormatted} native tokens`);
+      console.log(`Estimated cost: ${balanceCheck.requiredAmountFormatted} native tokens`);
 
       // Create contract factory
       const factory = new ContractFactory(abi, bytecode, wallet);

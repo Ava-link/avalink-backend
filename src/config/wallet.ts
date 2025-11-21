@@ -66,3 +66,33 @@ export async function getWalletBalance(rpcUrl: string): Promise<string> {
   }
 }
 
+/**
+ * Get detailed wallet balance information
+ * @param rpcUrl - The RPC URL of the blockchain network
+ * @returns Detailed balance information
+ */
+export async function getWalletBalanceDetails(rpcUrl: string): Promise<{
+  address: string;
+  balance: bigint;
+  balanceFormatted: string;
+  decimals: number;
+}> {
+  try {
+    const wallet = getWallet(rpcUrl);
+    if (!wallet.provider) {
+      throw new Error('Provider not found for wallet');
+    }
+    const balance = await wallet.provider.getBalance(wallet.address);
+    
+    return {
+      address: wallet.address,
+      balance,
+      balanceFormatted: ethers.formatEther(balance),
+      decimals: 18, // Standard for most EVM chains
+    };
+  } catch (error) {
+    console.error('Error getting wallet balance details:', error);
+    throw new Error(`Failed to get wallet balance details: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+

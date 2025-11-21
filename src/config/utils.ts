@@ -1,6 +1,66 @@
 import winston from 'winston';
 import path from 'path';
 import fs from 'fs';
+import logger from './logger';
+import { ethers } from 'ethers';
+
+
+/**
+ * Get numeric EVM chainId from RPC endpoint getChainIdFromRpc
+ */
+export async function getChainIdFromRpc(rpcUrl: string): Promise<number> {
+  try {
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    const network = await provider.getNetwork();
+
+    return Number(network.chainId); // Return as number, not string
+  } catch (error) {
+    logger.error(`Failed to get chainId from RPC ${rpcUrl}:`, error);
+    throw new Error(`Could not connect to RPC: ${rpcUrl}`);
+  }
+}
+
+/**
+ * Fetch chain metadata from Glacier API
+ */
+export async function getChainMetadataFromAvaCloud(chainId: number): Promise<{
+  name: string;
+  logoUrl?: string;
+  explorerUrl?: string;
+  nativeTokenName?: string;
+  nativeTokenSymbol?: string;
+  nativeTokenDecimals?: number;
+}> {
+  try {
+    const response = await fetch(
+      `https://glacier-api.avax.network/v1/chains/${chainId}`,
+      {
+        headers: {
+          'x-glacier-api-key': process.env.GLACIER_API_KEY || '',
+        },
+      }
+    );
+    if (!response.ok) {
+      throw new Error(`Glacier API returned ${response.status}`);
+    }
+    const data:any = await response.json();
+    return {
+      name: data.chainName || data.name,
+      logoUrl: data.logoUri || data.chainLogoUri,
+      explorerUrl: data.explorerUrl || data.blockExplorerUrl,
+      nativeTokenName: data.networkToken?.name || data.nativeToken?.name,
+      nativeTokenSymbol: data.networkToken?.symbol || data.nativeToken?.symbol,
+      nativeTokenDecimals: data.networkToken?.decimals || data.nativeToken?.decimals,
+    };
+  } catch (error) {
+    logger.warn(`Could not fetch chain metadata from Glacier API for chainId ${chainId}:`, error);
+
+    return {
+      name: `Chain ${chainId}`,
+    };
+  }
+}
+
 
 /**
  * Deployment Logger Utility
@@ -150,4 +210,116 @@ export function formatDeploymentInfo(contract: string, address: string, txHash?:
     'Transaction Hash': txHash || 'N/A',
     'Gas Used': gasUsed || 'N/A',
   };
+}
+
+/**
+ * Estimate gas cost for contract deployment
+ * @param abi Contract ABI
+ * @param bytecode Contract bytecode
+ * @param constructorArgs Constructor arguments
+ * @param rpcUrl RPC URL for the chain
+ * @param gasLimit Optional gas limit (will use this or estimate)
+ * @returns Estimated gas cost in native tokens and gas units
+ */
+export async function estimateDeploymentGasCost(
+  abi: any[],
+  bytecode: string,
+  constructorArgs: any[],
+  rpcUrl: string,
+  gasLimit?: number
+): Promise<{
+  estimatedGas: bigint;
+  gasPrice: bigint;
+  estimatedCost: bigint;
+  estimatedCostFormatted: string;
+  nativeTokenDecimals: number;
+}> {
+  try {
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    
+    // Get current gas price
+    const feeData = await provider.getFeeData();
+    const gasPrice = feeData.gasPrice || ethers.parseUnits('25', 'gwei'); // Fallback to 25 gwei
+
+    // Create temporary wallet for estimation
+    const tempWallet = ethers.Wallet.createRandom().connect(provider);
+    const factory = new ethers.ContractFactory(abi, bytecode, tempWallet);
+
+    let estimatedGas: bigint;
+    
+    if (gasLimit) {
+      // If gas limit is provided, use it as the estimate
+      estimatedGas = BigInt(gasLimit);
+    } else {
+      // Estimate gas by deploying the contract (simulation)
+      try {
+        const deploymentTx = await factory.getDeployTransaction(...constructorArgs);
+        estimatedGas = await provider.estimateGas(deploymentTx);
+        // Add 20% buffer for safety
+        estimatedGas = (estimatedGas * 120n) / 100n;
+      } catch (error) {
+        logger.warn('Could not estimate gas, using default', error);
+        // Fallback to a reasonable default based on contract complexity
+        estimatedGas = 5000000n; // 5M gas units
+      }
+    }
+
+    const estimatedCost = estimatedGas * gasPrice;
+    const estimatedCostFormatted = ethers.formatEther(estimatedCost);
+
+    return {
+      estimatedGas,
+      gasPrice,
+      estimatedCost,
+      estimatedCostFormatted,
+      nativeTokenDecimals: 18, // Standard for most EVM chains
+    };
+  } catch (error) {
+    logger.error('Error estimating deployment gas cost:', error);
+    throw new Error(`Failed to estimate gas cost: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+/**
+ * Check if wallet has sufficient balance for deployment
+ * @param walletAddress Wallet address to check
+ * @param rpcUrl RPC URL for the chain
+ * @param requiredAmount Required amount in wei (bigint)
+ * @returns Balance check result
+ */
+export async function checkSufficientBalance(
+  walletAddress: string,
+  rpcUrl: string,
+  requiredAmount: bigint
+): Promise<{
+  hasSufficientBalance: boolean;
+  currentBalance: bigint;
+  currentBalanceFormatted: string;
+  requiredAmount: bigint;
+  requiredAmountFormatted: string;
+  shortfall: bigint;
+  shortfallFormatted: string;
+  nativeTokenDecimals: number;
+}> {
+  try {
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    const balance = await provider.getBalance(walletAddress);
+    
+    const hasSufficientBalance = balance >= requiredAmount;
+    const shortfall = hasSufficientBalance ? 0n : requiredAmount - balance;
+
+    return {
+      hasSufficientBalance,
+      currentBalance: balance,
+      currentBalanceFormatted: ethers.formatEther(balance),
+      requiredAmount,
+      requiredAmountFormatted: ethers.formatEther(requiredAmount),
+      shortfall,
+      shortfallFormatted: ethers.formatEther(shortfall),
+      nativeTokenDecimals: 18,
+    };
+  } catch (error) {
+    logger.error('Error checking wallet balance:', error);
+    throw new Error(`Failed to check balance: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 }

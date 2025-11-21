@@ -61,10 +61,10 @@ export async function findOrCreateChain(
         : chainData.chainId;
     }
 
-    // Fetch metadata from AvaCloud if we have chainId
+    // Fetch metadata if we have chainId
     let metadata: any = {};
     if (evmChainId) {
-      logger.info(`Fetching chain metadata from AvaCloud for chainId: ${evmChainId}`);
+      logger.info(`Fetching chain metadata for chainId: ${evmChainId}`);
       metadata = await getChainMetadataFromAvaCloud(evmChainId);
     }
     // Create new chain with fetched metadata as fallback
