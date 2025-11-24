@@ -8,6 +8,7 @@ import { rayIdMiddleware } from './middleware/rayId';
 import healthRouter from './routes/health';
 import deploymentRouter from './routes/deployment';
 import availableRouter from './routes/available';
+import checksRouter from './routes/checks';
 
 // Add global error handlers at the very top
 process.on('unhandledRejection', (reason, promise) => {
@@ -37,6 +38,7 @@ app.use(rayIdMiddleware);
 app.use('/', healthRouter);
 app.use('/deploy', deploymentRouter);
 app.use('/available', availableRouter);
+app.use('/checks', checksRouter);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

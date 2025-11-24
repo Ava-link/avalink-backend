@@ -51,11 +51,7 @@ export class BaseDeploymentService {
       const wallet = getWallet(params.rpcUrl);
       const deployerAddress = wallet.address;
 
-      console.log(`Deploying contract from address: ${deployerAddress}`);
-      console.log(`Chain RPC: ${params.rpcUrl}`);
-
       // Estimate gas cost for deployment
-      logger.info('Estimating gas cost for deployment...');
       const gasEstimate = await estimateDeploymentGasCost(
         abi,
         bytecode,
@@ -64,11 +60,6 @@ export class BaseDeploymentService {
         params.gasLimit
       );
 
-      logger.info('Gas estimation:', {
-        estimatedGas: gasEstimate.estimatedGas.toString(),
-        gasPrice: ethers.formatUnits(gasEstimate.gasPrice, 'gwei') + ' gwei',
-        estimatedCost: gasEstimate.estimatedCostFormatted + ' native tokens',
-      });
 
       // Check if wallet has sufficient balance
       const balanceCheck = await checkSufficientBalance(
@@ -76,12 +67,6 @@ export class BaseDeploymentService {
         params.rpcUrl,
         gasEstimate.estimatedCost
       );
-
-      logger.info('Balance check:', {
-        currentBalance: balanceCheck.currentBalanceFormatted + ' native tokens',
-        requiredAmount: balanceCheck.requiredAmountFormatted + ' native tokens',
-        hasSufficientBalance: balanceCheck.hasSufficientBalance,
-      });
 
       if (!balanceCheck.hasSufficientBalance) {
         const errorMessage = `Insufficient balance for deployment. You need to pay for gas fees.\n` +
@@ -93,16 +78,11 @@ export class BaseDeploymentService {
         throw new Error(errorMessage);
       }
 
-      console.log(`✅ Sufficient balance confirmed`);
-      console.log(`Deployer balance: ${balanceCheck.currentBalanceFormatted} native tokens`);
-      console.log(`Estimated cost: ${balanceCheck.requiredAmountFormatted} native tokens`);
-
       // Create contract factory
       const factory = new ContractFactory(abi, bytecode, wallet);
 
       // Deploy contract
       const gasLimit = params.gasLimit || env.DEFAULT_GAS_LIMIT;
-      console.log(`Deploying with gas limit: ${gasLimit}`);
       
       let contract: BaseContract & { deploymentTransaction(): any };
       if (params.constructorArgs && params.constructorArgs.length > 0) {
@@ -111,9 +91,6 @@ export class BaseDeploymentService {
         contract = await factory.deploy({ gasLimit }) as any;
       }
 
-      console.log(`Transaction sent: ${contract.deploymentTransaction()?.hash}`);
-      console.log('Waiting for confirmation...');
-
       // Wait for deployment to complete
       await contract.waitForDeployment();
       const contractAddress = await contract.getAddress();
@@ -121,9 +98,6 @@ export class BaseDeploymentService {
       // Get transaction receipt for gas used
       const receipt = await contract.deploymentTransaction()?.wait();
       const gasUsed = receipt?.gasUsed ? receipt.gasUsed.toString() : undefined;
-
-      console.log(`Contract deployed successfully at: ${contractAddress}`);
-      console.log(`Gas used: ${gasUsed}`);
 
       return {
         success: true,
@@ -135,7 +109,7 @@ export class BaseDeploymentService {
         timestamp
       };
     } catch (error) {
-      console.error('Deployment failed:', error);
+      logger.error('Deployment failed:', error);
       
       const wallet = getWallet(params.rpcUrl);
       
