@@ -25,37 +25,45 @@ const logColors = {
 
 winston.addColors(logColors);
 
+// Custom replacer to handle BigInt serialization
+const bigIntReplacer = (key: string, value: any) => {
+  if (typeof value === 'bigint') {
+    return value.toString();
+  }
+  return value;
+};
+
 // Custom format for console output
 const consoleFormat = winston.format.combine(
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
   winston.format.colorize({ all: true }),
   winston.format.printf((info) => {
     const { timestamp, level, message, rayId, endpoint, functionName, ...meta } = info;
-    
+
     let logMessage = `${timestamp} [${level}]`;
-    
+
     // Add Ray-ID if present
     if (rayId) {
       logMessage += ` [Ray-ID: ${rayId}]`;
     }
-    
+
     // Add endpoint if present
     if (endpoint) {
       logMessage += ` [${endpoint}]`;
     }
-    
+
     // Add function name if present
     if (functionName) {
       logMessage += ` [${functionName}]`;
     }
-    
+
     logMessage += `: ${message}`;
-    
-    // Add any additional metadata
+
+    // Add any additional metadata with BigInt support
     if (Object.keys(meta).length > 0) {
-      logMessage += ` ${JSON.stringify(meta)}`;
+      logMessage += ` ${JSON.stringify(meta, bigIntReplacer)}`;
     }
-    
+
     return logMessage;
   })
 );
@@ -75,20 +83,20 @@ const logger = winston.createLogger({
     new winston.transports.Console({
       format: consoleFormat,
     }),
-    
+
     // File transport for errors
     new winston.transports.File({
       filename: 'logs/error.log',
       level: 'error',
       format: fileFormat,
     }),
-    
+
     // File transport for all logs
     new winston.transports.File({
       filename: 'logs/combined.log',
       format: fileFormat,
     }),
-    
+
     // File transport for deployment logs
     new winston.transports.File({
       filename: 'logs/deployments.log',

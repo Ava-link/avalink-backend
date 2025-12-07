@@ -9,6 +9,7 @@ import healthRouter from './routes/health';
 import deploymentRouter from './routes/deployment';
 import availableRouter from './routes/available';
 import checksRouter from './routes/checks';
+import faucetRouter from './routes/faucet';
 
 // Add global error handlers at the very top
 process.on('unhandledRejection', (reason, promise) => {
@@ -39,6 +40,7 @@ app.use('/', healthRouter);
 app.use('/deploy', deploymentRouter);
 app.use('/available', availableRouter);
 app.use('/checks', checksRouter);
+app.use('/faucet', faucetRouter);
 
 // 404 handler
 app.use((req: Request, res: Response) => {
@@ -51,16 +53,16 @@ app.use((req: Request, res: Response) => {
 
 // Error handler
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  logger.error('Unhandled error', { 
+  logger.error('Unhandled error', {
     rayId: req.rayId,
     error: err.message,
-    stack: err.stack 
+    stack: err.stack
   });
-  
+
   res.status(500).json({
     status: 'error',
-    message: env.NODE_ENV === 'production' 
-      ? 'Internal server error' 
+    message: env.NODE_ENV === 'production'
+      ? 'Internal server error'
       : err.message,
     rayId: req.rayId
   });

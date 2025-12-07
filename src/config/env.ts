@@ -37,6 +37,13 @@ const envSchema = z.object({
   DEPLOYER_PRIVATE_KEY: z.string().min(1, 'Deployer private key is required'),
   DEFAULT_GAS_LIMIT: z.string().default('5000000').transform(Number),
 
+  // Faucet Configuration
+  FAUCET_TOKEN_ADDRESS: z.string().optional(), // Optional: can be provided per-request by frontend
+  FAUCET_RPC_URL: z.string().url().optional(), // Optional: can be provided per-request by frontend
+  FAUCET_AMOUNT: z.string().default('2').transform(Number),
+  FAUCET_MIN_BALANCE: z.string().default('1000').transform(Number),
+  FAUCET_RATE_LIMIT_MINUTES: z.string().default('60').transform(Number),
+
   // avaCloud
   AVACLOUD_API_KEY: z.string(),
 });
